@@ -1,10 +1,9 @@
-use trait_schema_impl::trait_schema;
-
-#[trait_schema]
-trait MyTrait {
-    fn my_method(&self) -> String;
-}
 
 fn main() {
-    println!("{:?}", MyTrait_schema());
+	// Keep a tiny, harmless binary here so Cargo doesn't complain about a
+	// missing `main` while the real example lives in `examples/demo.rs`.
+	// Use the example via: `cargo run --example demo`
+	println!(
+		"This binary is intentionally minimal. Run the proc-macro example with: cargo run --example demo"
+	);
 }

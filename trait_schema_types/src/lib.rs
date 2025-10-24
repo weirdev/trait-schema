@@ -24,10 +24,10 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
                 let functions = ::std::vec![
                     #field_tokens
                 ];
-                ::trait_schema::TraitSchema {
-                    name: ::std::string::String::from(#name_lit),
-                    fields: functions,
-                }
+                    ::trait_schema_types::TraitSchema {
+                        name: ::std::string::String::from(#name_lit),
+                        fields: functions,
+                    }
             }
         }
     }
@@ -42,7 +42,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
         quote! {
-            ::trait_schema::FunctionSchema {
+            ::trait_schema_types::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
             }
         }
