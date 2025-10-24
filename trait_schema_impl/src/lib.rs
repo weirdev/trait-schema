@@ -20,6 +20,27 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             trait_functions.push(trait_schema_types::FunctionSchema {
                 name: sig.ident.to_string(),
+                args: sig
+                    .inputs
+                    .iter()
+                    .filter_map(|arg| {
+                        if let FnArg::Typed(pat_type) = arg {
+                            if let Type::Reference(ty_ref) = &*pat_type.ty {
+                                Some(format!("{}", quote! { #ty_ref }))
+                            } else {
+                                Some(format!("{}", quote! { #pat_type.ty }))
+                            }
+                        } else if let FnArg::Receiver(Receiver { .. }) = arg {
+                            Some("self".to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+                return_type: match &sig.output {
+                    ReturnType::Default => "()".to_string(),
+                    ReturnType::Type(_, ty) => format!("{}", quote! { #ty }),
+                },
             });
         }
     }
@@ -27,7 +48,7 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_name_string = trait_ident.to_string();
     let trait_schema = trait_schema_types::TraitSchema {
         name: trait_name_string,
-        fields: trait_functions,
+        functions: trait_functions,
     };
 
     let trait_tokens: proc_macro2::TokenStream = trait_schema.into();
