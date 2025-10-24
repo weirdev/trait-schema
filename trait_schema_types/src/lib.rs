@@ -1,8 +1,9 @@
-use quote::{format_ident, quote};
-use syn::{
-    FnArg, ItemTrait, Receiver, ReturnType, TraitItem, Type, parse_macro_input,
-    punctuated::Punctuated, token::Comma,
-};
+use quote::quote;
+use syn::{punctuated::Punctuated, token::Comma};
+
+// Needed so macro type references work correctly
+#[allow(unused_imports)]
+use crate as trait_schema;
 
 #[derive(Debug)]
 pub struct TraitSchema {
@@ -24,7 +25,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
                 let functions = ::std::vec![
                     #field_tokens
                 ];
-                    ::trait_schema_types::TraitSchema {
+                    ::trait_schema::TraitSchema {
                         name: ::std::string::String::from(#name_lit),
                         functions: functions,
                     }
@@ -55,7 +56,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
             .collect::<Punctuated<_, Comma>>();
         let return_type_lit = proc_macro2::Literal::string(&self.return_type);
         quote! {
-            ::trait_schema_types::FunctionSchema {
+            ::trait_schema::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
                 args: ::std::vec![
                     #args_tokens

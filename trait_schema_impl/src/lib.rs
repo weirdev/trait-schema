@@ -1,9 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{
-    FnArg, ItemTrait, Receiver, ReturnType, TraitItem, Type, parse_macro_input,
-    punctuated::Punctuated, token::Comma,
-};
+use syn::{FnArg, ItemTrait, Receiver, ReturnType, TraitItem, Type, parse_macro_input};
+
+use trait_schema_types as trait_schema;
 
 #[proc_macro_attribute]
 pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -12,13 +11,13 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Generated schema function name
     let schema_fn_ident = format_ident!("{}_schema", trait_ident);
 
-    let mut trait_functions: Vec<trait_schema_types::FunctionSchema> = Vec::new();
+    let mut trait_functions: Vec<trait_schema::FunctionSchema> = Vec::new();
 
     for it in &input.items {
         if let TraitItem::Fn(m) = it {
             let sig = &m.sig;
 
-            trait_functions.push(trait_schema_types::FunctionSchema {
+            trait_functions.push(trait_schema::FunctionSchema {
                 name: sig.ident.to_string(),
                 args: sig
                     .inputs
@@ -46,7 +45,7 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let trait_name_string = trait_ident.to_string();
-    let trait_schema = trait_schema_types::TraitSchema {
+    let trait_schema = trait_schema::TraitSchema {
         name: trait_name_string,
         functions: trait_functions,
     };
@@ -57,7 +56,7 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #input
 
         #[allow(non_snake_case)]
-        pub fn #schema_fn_ident() -> trait_schema_types::TraitSchema {
+        pub fn #schema_fn_ident() -> trait_schema::TraitSchema {
             #trait_tokens
         }
     };

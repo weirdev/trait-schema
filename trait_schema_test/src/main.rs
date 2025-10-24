@@ -1,4 +1,4 @@
-use trait_schema_impl::trait_schema;
+use trait_schema::trait_schema;
 
 #[trait_schema]
 trait MyTrait {

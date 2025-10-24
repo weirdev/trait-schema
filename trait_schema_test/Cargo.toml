@@ -4,5 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trait_schema_impl = { path = "../trait_schema_impl" }
-trait_schema_types = { path = "../trait_schema_types" }
+trait_schema = { path = "../trait_schema" }
