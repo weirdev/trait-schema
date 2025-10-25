@@ -22,6 +22,8 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 args: sig
                     .inputs
                     .iter()
+                    // TODO: Skipping the self argument for now
+                    .skip(1)
                     .filter_map(|arg| {
                         if let FnArg::Typed(pat_type) = arg {
                             if let Type::Reference(ty_ref) = &*pat_type.ty {
