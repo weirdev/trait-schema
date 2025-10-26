@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use quote::quote;
 use syn::{punctuated::Punctuated, token::Comma};
 
@@ -39,6 +41,7 @@ pub struct FunctionSchema {
     pub name: String,
     pub args: Vec<FunctionArgSchema>,
     pub return_type: String,
+    pub body: Option<String>,
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionSchema {
@@ -50,6 +53,18 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
             .map(|arg| Into::<proc_macro2::TokenStream>::into(arg))
             .collect::<Punctuated<_, Comma>>();
         let return_type_lit = proc_macro2::Literal::string(&self.return_type);
+
+        let body = if let Some(body) = self.body {
+            let body_lit = proc_macro2::Literal::string(&body);
+            quote! {
+                Some(::std::string::String::from(#body_lit))
+            }
+        } else {
+            quote! {
+                None
+            }
+        };
+
         quote! {
             ::trait_schema::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
@@ -57,8 +72,33 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
                     #args_tokens
                 ],
                 return_type: ::std::string::String::from(#return_type_lit),
+                body: #body,
             }
         }
+    }
+}
+
+impl Display for FunctionSchema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn {}(", self.name)?;
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            if let Some(ty) = &arg.ty {
+                write!(f, "{}: {}", arg.name, ty)?;
+            } else {
+                write!(f, "{}", arg.name)?;
+            }
+        }
+        write!(f, ")")?;
+        write!(f, " -> {}", self.return_type)?;
+        if let Some(body) = &self.body {
+            write!(f, " {{ {} }}", body)?;
+        } else {
+            write!(f, ";")?;
+        }
+        Ok(())
     }
 }
 

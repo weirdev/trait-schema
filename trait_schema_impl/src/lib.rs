@@ -62,6 +62,7 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     ReturnType::Default => "()".to_string(),
                     ReturnType::Type(_, ty) => format!("{}", quote! { #ty }),
                 },
+                body: None, // No body for trait methods
             });
         }
     }
