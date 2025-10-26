@@ -94,7 +94,7 @@ impl Display for FunctionSchema {
         write!(f, ")")?;
         write!(f, " -> {}", self.return_type)?;
         if let Some(body) = &self.body {
-            write!(f, " {{ {} }}", body)?;
+            write!(f, " {{\n{}\n}}", body)?;
         } else {
             write!(f, ";")?;
         }
