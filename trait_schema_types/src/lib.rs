@@ -37,7 +37,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
 #[derive(Debug)]
 pub struct FunctionSchema {
     pub name: String,
-    pub args: Vec<String>,
+    pub args: Vec<FunctionArgSchema>,
     pub return_type: String,
 }
 
@@ -47,12 +47,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
         let args_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
             .args
             .into_iter()
-            .map(|arg| {
-                let arg_lit = proc_macro2::Literal::string(&arg);
-                quote! {
-                    ::std::string::String::from(#arg_lit)
-                }
-            })
+            .map(|arg| Into::<proc_macro2::TokenStream>::into(arg))
             .collect::<Punctuated<_, Comma>>();
         let return_type_lit = proc_macro2::Literal::string(&self.return_type);
         quote! {
@@ -63,6 +58,73 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
                 ],
                 return_type: ::std::string::String::from(#return_type_lit),
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionArgSchema {
+    pub name: String,
+    pub ty: Option<String>,
+    pub annotations: Option<FnArgAnnotations>,
+}
+
+impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
+    fn into(self) -> proc_macro2::TokenStream {
+        let name_lit = proc_macro2::Literal::string(&self.name);
+        let ty_lit = self.ty.as_ref().map(|s| proc_macro2::Literal::string(s));
+        let annotations_tokens = if let Some(annotations) = self.annotations {
+            let annotations_ts: proc_macro2::TokenStream = annotations.into();
+            quote! { Some(#annotations_ts) }
+        } else {
+            quote! { None }
+        };
+
+        let ty_tokens: proc_macro2::TokenStream = if let Some(ty_lit) = ty_lit {
+            quote! { ty: ::std::option::Option::Some(::std::string::String::from(#ty_lit)), }
+        } else {
+            quote! { ty: ::std::option::Option::None, }
+        };
+
+        quote! {
+            ::trait_schema::FunctionArgSchema {
+            name: ::std::string::String::from(#name_lit),
+            #ty_tokens
+            annotations: #annotations_tokens,
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FnArgAnnotations {
+    // Examples of supported args:
+    //   #[arg(collection_as_item, assert_len = 1)]
+    pub collection_as_item: bool,
+    pub assert_len: Option<usize>, // e.g. 10
+}
+
+impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
+    fn into(self) -> proc_macro2::TokenStream {
+        let collection_as_item = self.collection_as_item;
+        let assert_len = match self.assert_len {
+            Some(len) => quote! { Some(#len) },
+            None => quote! { None },
+        };
+        quote! {
+            ::trait_schema::FnArgAnnotations {
+                collection_as_item: #collection_as_item,
+                assert_len: #assert_len,
+            }
+        }
+    }
+}
+
+impl FnArgAnnotations {
+    pub fn new() -> Self {
+        FnArgAnnotations {
+            collection_as_item: false,
+            assert_len: None,
         }
     }
 }
