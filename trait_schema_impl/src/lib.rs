@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, ItemTrait, LitStr, Receiver, ReturnType, TraitItem, Type, parse_macro_input};
+use syn::{FnArg, ItemTrait, LitInt, Receiver, ReturnType, TraitItem, parse_macro_input};
 
 use trait_schema_types as trait_schema;
 
@@ -17,40 +17,11 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
         if let TraitItem::Fn(m) = it {
             let sig = &mut m.sig;
 
-            for arg in &mut sig.inputs {
-                if let syn::FnArg::Typed(pat_type) = arg {
-                    for attr in &pat_type.attrs {
-                        let mut info = trait_schema::FnArgAnnotations::new();
-                        if attr.path().is_ident("arg") {
-                            // Parse meta inside #[arg(...)]
-                            let _ = attr.parse_nested_meta(|meta| {
-                                if meta.path.is_ident("collection_as_item") {
-                                    info.collection_as_item = true;
-                                    return Ok(());
-                                }
-                                if meta.path.is_ident("assert_len") {
-                                    let v: LitStr = meta.value()?.parse()?;
-                                    info.assert_len =
-                                        Some(v.value().parse().map_err(|_| {
-                                            meta.error("assert_len must be a number")
-                                        })?);
-                                    return Ok(());
-                                }
-                                // Unknown key → ignore or error:
-                                // return Err(meta.error("unknown arg attribute"));
-                                Ok(())
-                            });
-                        }
-                    }
-                    pat_type.attrs.retain(|a| !a.path().is_ident("arg"));
-                }
-            }
-
             trait_functions.push(trait_schema::FunctionSchema {
                 name: sig.ident.to_string(),
                 args: sig
                     .inputs
-                    .iter()
+                    .iter_mut()
                     // TODO: Skipping the self argument for now
                     .skip(1)
                     .filter_map(|arg| {
@@ -68,10 +39,13 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             //     Type::Path(ty_path) => Some(format!("{}", quote! { #ty_path })),
                             //     _ => Some(format!("{}", quote! { #ty })),
                             // };
+
+                            let annotations = process_fn_arg_annotations(arg);
+
                             Some(trait_schema::FunctionArgSchema {
                                 name: arg_name,
                                 ty: Some(arg_ty),
-                                annotations: None,
+                                annotations: Some(annotations),
                             })
                         } else if let FnArg::Receiver(Receiver { .. }) = arg {
                             Some(trait_schema::FunctionArgSchema {
@@ -115,4 +89,32 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // println!("{}", output);
 
     output.into()
+}
+
+fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations {
+    let mut info = trait_schema::FnArgAnnotations::new();
+    if let syn::FnArg::Typed(pat_type) = arg {
+        for attr in &pat_type.attrs {
+            if attr.path().is_ident("arg") {
+                // Parse meta inside #[arg(...)]
+                let _ = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("collection_as_item") {
+                        info.collection_as_item = true;
+                        return Ok(());
+                    }
+                    if meta.path.is_ident("assert_len") {
+                        let v: LitInt = meta.value()?.parse()?;
+                        info.assert_len = Some(v.base10_parse::<usize>()?);
+                        return Ok(());
+                    }
+                    // Unknown key -> ignore or error:
+                    // return Err(meta.error("unknown arg attribute"));
+                    Ok(())
+                });
+            }
+        }
+        pat_type.attrs.retain(|a| !a.path().is_ident("arg"));
+    }
+
+    info
 }
