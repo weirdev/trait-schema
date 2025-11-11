@@ -22,8 +22,6 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 args: sig
                     .inputs
                     .iter_mut()
-                    // TODO: Skipping the self argument for now
-                    .skip(1)
                     .filter_map(|arg| {
                         if let FnArg::Typed(pat_type) = arg {
                             let arg_name = if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
