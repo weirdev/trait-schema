@@ -88,7 +88,9 @@ impl Display for FunctionSchema {
             if let Some(ty) = &arg.ty {
                 write!(f, "{}: {}", arg.name, ty)?;
             } else {
-                write!(f, "{}", arg.name)?;
+                // Only self param lack an explicit type
+                // TODO: Assuming self param is reference
+                write!(f, "&{}", arg.name)?;
             }
         }
         write!(f, ")")?;
