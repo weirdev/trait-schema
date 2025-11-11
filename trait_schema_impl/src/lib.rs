@@ -119,3 +119,101 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
 
     info
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn test_process_fn_arg_annotations_no_annotations() {
+        let mut arg: FnArg = parse_quote!(arg1: String);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert!(!annotations.collection_as_item);
+        assert!(annotations.assert_len.is_none());
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_collection_as_item() {
+        let mut arg: FnArg = parse_quote!(#[arg(collection_as_item)] arg1: Vec<String>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert!(annotations.collection_as_item);
+        assert!(annotations.assert_len.is_none());
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_assert_len() {
+        let mut arg: FnArg = parse_quote!(#[arg(assert_len = 5)] arg1: Vec<String>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert!(!annotations.collection_as_item);
+        assert_eq!(annotations.assert_len, Some(5));
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_combined() {
+        let mut arg: FnArg = parse_quote!(#[arg(collection_as_item, assert_len = 10)] arg1: Vec<String>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert!(annotations.collection_as_item);
+        assert_eq!(annotations.assert_len, Some(10));
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_multiple_values() {
+        let mut arg: FnArg = parse_quote!(#[arg(assert_len = 42)] arg1: Vec<i32>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert_eq!(annotations.assert_len, Some(42));
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_removes_arg_attribute() {
+        let mut arg: FnArg = parse_quote!(#[arg(collection_as_item)] arg1: Vec<String>);
+        process_fn_arg_annotations(&mut arg);
+        
+        if let FnArg::Typed(pat_type) = &arg {
+            // The #[arg(...)] attribute should be removed
+            let has_arg_attr = pat_type.attrs.iter().any(|attr| attr.path().is_ident("arg"));
+            assert!(!has_arg_attr);
+        } else {
+            panic!("Expected FnArg::Typed");
+        }
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_zero_assert_len() {
+        let mut arg: FnArg = parse_quote!(#[arg(assert_len = 0)] arg1: Vec<String>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert_eq!(annotations.assert_len, Some(0));
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_large_assert_len() {
+        let mut arg: FnArg = parse_quote!(#[arg(assert_len = 999999)] arg1: Vec<String>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+        
+        assert_eq!(annotations.assert_len, Some(999999));
+    }
+
+    #[test]
+    fn test_fn_arg_annotations_new() {
+        let annotations = trait_schema::FnArgAnnotations::new();
+        assert!(!annotations.collection_as_item);
+        assert!(annotations.assert_len.is_none());
+    }
+
+    #[test]
+    fn test_fn_arg_annotations_creation_manual() {
+        let annotations = trait_schema::FnArgAnnotations {
+            collection_as_item: true,
+            assert_len: Some(25),
+        };
+        
+        assert!(annotations.collection_as_item);
+        assert_eq!(annotations.assert_len, Some(25));
+    }
+}

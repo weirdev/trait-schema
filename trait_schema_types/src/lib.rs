@@ -168,3 +168,192 @@ impl FnArgAnnotations {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fn_arg_annotations_new() {
+        let annotations = FnArgAnnotations::new();
+        assert!(!annotations.collection_as_item);
+        assert!(annotations.assert_len.is_none());
+    }
+
+    #[test]
+    fn test_fn_arg_annotations_creation_with_values() {
+        let annotations = FnArgAnnotations {
+            collection_as_item: true,
+            assert_len: Some(42),
+        };
+        assert!(annotations.collection_as_item);
+        assert_eq!(annotations.assert_len, Some(42));
+    }
+
+    #[test]
+    fn test_function_arg_schema_creation() {
+        let arg = FunctionArgSchema {
+            name: "test_arg".to_string(),
+            ty: Some("String".to_string()),
+            annotations: Some(FnArgAnnotations {
+                collection_as_item: false,
+                assert_len: Some(10),
+            }),
+        };
+
+        assert_eq!(arg.name, "test_arg");
+        assert_eq!(arg.ty, Some("String".to_string()));
+        assert!(arg.annotations.is_some());
+        if let Some(ann) = arg.annotations {
+            assert_eq!(ann.assert_len, Some(10));
+        }
+    }
+
+    #[test]
+    fn test_function_arg_schema_without_annotations() {
+        let arg = FunctionArgSchema {
+            name: "simple_arg".to_string(),
+            ty: Some("i32".to_string()),
+            annotations: None,
+        };
+
+        assert_eq!(arg.name, "simple_arg");
+        assert_eq!(arg.ty, Some("i32".to_string()));
+        assert!(arg.annotations.is_none());
+    }
+
+    #[test]
+    fn test_function_schema_creation() {
+        let args = vec![
+            FunctionArgSchema {
+                name: "arg1".to_string(),
+                ty: Some("String".to_string()),
+                annotations: None,
+            },
+            FunctionArgSchema {
+                name: "arg2".to_string(),
+                ty: Some("i32".to_string()),
+                annotations: None,
+            },
+        ];
+
+        let func = FunctionSchema {
+            name: "test_fn".to_string(),
+            args,
+            return_type: "bool".to_string(),
+            body: None,
+        };
+
+        assert_eq!(func.name, "test_fn");
+        assert_eq!(func.args.len(), 2);
+        assert_eq!(func.return_type, "bool");
+        assert!(func.body.is_none());
+    }
+
+    #[test]
+    fn test_function_schema_display() {
+        let args = vec![
+            FunctionArgSchema {
+                name: "x".to_string(),
+                ty: Some("i32".to_string()),
+                annotations: None,
+            },
+            FunctionArgSchema {
+                name: "y".to_string(),
+                ty: Some("String".to_string()),
+                annotations: None,
+            },
+        ];
+
+        let func = FunctionSchema {
+            name: "my_function".to_string(),
+            args,
+            return_type: "bool".to_string(),
+            body: None,
+        };
+
+        let display_str = format!("{}", func);
+        assert!(display_str.contains("my_function"));
+        assert!(display_str.contains("x: i32"));
+        assert!(display_str.contains("y: String"));
+        assert!(display_str.contains("-> bool"));
+        assert!(display_str.contains(";"));
+    }
+
+    #[test]
+    fn test_function_schema_display_with_body() {
+        let args = vec![];
+        let func = FunctionSchema {
+            name: "with_body".to_string(),
+            args,
+            return_type: "String".to_string(),
+            body: Some("return \"hello\".to_string();".to_string()),
+        };
+
+        let display_str = format!("{}", func);
+        assert!(display_str.contains("with_body"));
+        assert!(display_str.contains("hello"));
+        assert!(display_str.contains("{"));
+        assert!(display_str.contains("}"));
+    }
+
+    #[test]
+    fn test_trait_schema_creation() {
+        let functions = vec![
+            FunctionSchema {
+                name: "method1".to_string(),
+                args: vec![],
+                return_type: "()".to_string(),
+                body: None,
+            },
+            FunctionSchema {
+                name: "method2".to_string(),
+                args: vec![
+                    FunctionArgSchema {
+                        name: "arg".to_string(),
+                        ty: Some("String".to_string()),
+                        annotations: None,
+                    },
+                ],
+                return_type: "String".to_string(),
+                body: None,
+            },
+        ];
+
+        let schema = TraitSchema {
+            name: "MyTrait".to_string(),
+            functions,
+        };
+
+        assert_eq!(schema.name, "MyTrait");
+        assert_eq!(schema.functions.len(), 2);
+        assert_eq!(schema.functions[0].name, "method1");
+        assert_eq!(schema.functions[1].name, "method2");
+    }
+
+    #[test]
+    fn test_function_schema_no_args() {
+        let func = FunctionSchema {
+            name: "no_args".to_string(),
+            args: vec![],
+            return_type: "()".to_string(),
+            body: None,
+        };
+
+        assert_eq!(func.args.len(), 0);
+        let display_str = format!("{}", func);
+        assert!(display_str.contains("no_args()"));
+    }
+
+    #[test]
+    fn test_function_arg_schema_no_type() {
+        let arg = FunctionArgSchema {
+            name: "self".to_string(),
+            ty: None,
+            annotations: None,
+        };
+
+        assert_eq!(arg.name, "self");
+        assert!(arg.ty.is_none());
+    }
+}
