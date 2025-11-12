@@ -106,6 +106,11 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
                         info.assert_len = Some(v.base10_parse::<usize>()?);
                         return Ok(());
                     }
+                    if meta.path.is_ident("cffi_type") {
+                        let v: syn::LitStr = meta.value()?.parse()?;
+                        info.cffi_type = Some(v.value());
+                        return Ok(());
+                    }
                     // Unknown key -> ignore or error:
                     // return Err(meta.error("unknown arg attribute"));
                     Ok(())
@@ -209,9 +214,29 @@ mod tests {
         let annotations = trait_schema::FnArgAnnotations {
             collection_as_item: true,
             assert_len: Some(25),
+            cffi_type: Some("opt_ptr<f32>".to_string()),
         };
         
         assert!(annotations.collection_as_item);
         assert_eq!(annotations.assert_len, Some(25));
+        assert_eq!(annotations.cffi_type, Some("opt_ptr<f32>".to_string()));
+    }
+
+    #[test]
+    fn test_process_fn_arg_annotations_cffi_type() {
+        let mut arg: FnArg = parse_quote!(#[arg(cffi_type = "ptr<f64>")] values: Arc<f64>);
+        let annotations = process_fn_arg_annotations(&mut arg);
+
+        assert_eq!(annotations.cffi_type, Some("ptr<f64>".to_string()));
+        assert!(!annotations.collection_as_item);
+        assert!(annotations.assert_len.is_none());
+
+        // Ensure the attribute was removed from the typed arg
+        if let FnArg::Typed(pat_type) = &arg {
+            let has_arg_attr = pat_type.attrs.iter().any(|attr| attr.path().is_ident("arg"));
+            assert!(!has_arg_attr);
+        } else {
+            panic!("Expected FnArg::Typed");
+        }
     }
 }

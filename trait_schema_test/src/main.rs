@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use trait_schema::trait_schema;
 
 #[trait_schema]
@@ -15,6 +17,7 @@ trait SimpleTrait {
 trait AnnotatedTrait {
     fn with_collection(&self, #[arg(collection_as_item)] items: Vec<String>) -> usize;
     fn with_assert_len(&self, #[arg(assert_len = 5)] data: Vec<i32>) -> bool;
+    fn with_cffi_type(&self, #[arg(cffi_type = "ptr<f64>")] values: Arc<f64>) -> bool;
 }
 
 #[trait_schema]
@@ -53,8 +56,8 @@ fn main() {
         for arg in &func.args {
             if let Some(ann) = &arg.annotations {
                 println!(
-                    "  Arg: {} - collection_as_item: {}, assert_len: {:?}",
-                    arg.name, ann.collection_as_item, ann.assert_len
+                    "  Arg: {} - collection_as_item: {}, assert_len: {:?}, cffi_type: {:?}",
+                    arg.name, ann.collection_as_item, ann.assert_len, ann.cffi_type
                 );
             }
         }

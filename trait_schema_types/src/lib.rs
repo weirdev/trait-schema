@@ -144,11 +144,15 @@ pub struct FnArgAnnotations {
     //   #[arg(collection_as_item, assert_len = 1)]
     pub collection_as_item: bool,
     pub assert_len: Option<usize>, // e.g. 10
+    pub cffi_type: Option<String>, // ptr<i32>, opt_ptr<f32>, etc.
 }
 
 impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
     fn into(self) -> proc_macro2::TokenStream {
         let collection_as_item = self.collection_as_item;
+        let cffi_type = self.cffi_type.as_ref().map(|s| proc_macro2::Literal::string(s))
+            .map(|lit| quote! { Some(::std::string::String::from(#lit)) })
+            .unwrap_or(quote! { None });
         let assert_len = match self.assert_len {
             Some(len) => quote! { Some(#len) },
             None => quote! { None },
@@ -157,6 +161,7 @@ impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
             ::trait_schema::FnArgAnnotations {
                 collection_as_item: #collection_as_item,
                 assert_len: #assert_len,
+                cffi_type: #cffi_type,
             }
         }
     }
@@ -167,6 +172,7 @@ impl FnArgAnnotations {
         FnArgAnnotations {
             collection_as_item: false,
             assert_len: None,
+            cffi_type: None,
         }
     }
 }
@@ -187,9 +193,11 @@ mod tests {
         let annotations = FnArgAnnotations {
             collection_as_item: true,
             assert_len: Some(42),
+            cffi_type: Some("ptr<i32>".to_string()),
         };
         assert!(annotations.collection_as_item);
         assert_eq!(annotations.assert_len, Some(42));
+        assert_eq!(annotations.cffi_type, Some("ptr<i32>".to_string()));
     }
 
     #[test]
@@ -200,6 +208,7 @@ mod tests {
             annotations: Some(FnArgAnnotations {
                 collection_as_item: false,
                 assert_len: Some(10),
+                cffi_type: None,
             }),
         };
 
