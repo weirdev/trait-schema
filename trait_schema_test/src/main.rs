@@ -32,6 +32,11 @@ trait ComplexTrait {
     ) -> String;
 }
 
+#[trait_schema(cffi_generic_specialization = "f64")]
+trait SpecializedTrait<T> {
+    fn specialized_method(&self, value: T) -> String;
+}
+
 fn main() {
     println!("=== MyTrait Schema ===");
     let my_trait_schema = MyTrait_schema();
@@ -70,4 +75,9 @@ fn main() {
     for func in &complex_trait_schema.functions {
         println!("Function: {} with {} args", func.name, func.args.len());
     }
+
+    println!("\n=== SpecializedTrait Schema ===");
+    let specialized_trait_schema = SpecializedTrait_schema();
+    println!("{:#?}", specialized_trait_schema);
+    println!("cffi_generic_specialization: {:?}", specialized_trait_schema.cffi_generic_specialization);
 }

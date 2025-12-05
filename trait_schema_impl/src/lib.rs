@@ -5,11 +5,53 @@ use syn::{FnArg, ItemTrait, LitInt, Receiver, ReturnType, TraitItem, parse_macro
 use trait_schema_types as trait_schema;
 
 #[proc_macro_attribute]
-pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemTrait);
     let trait_ident = input.ident.clone();
     // Generated schema function name
     let schema_fn_ident = format_ident!("{}_schema", trait_ident);
+
+    // Parse optional attribute argument
+    let cffi_generic_specialization = if attr.is_empty() {
+        None
+    } else {
+        match syn::parse::<syn::Expr>(attr) {
+            Ok(attr_parser) => {
+                if let syn::Expr::Assign(assign) = attr_parser {
+                    if let syn::Expr::Path(path) = &*assign.left {
+                        if path.path.is_ident("cffi_generic_specialization") {
+                            if let syn::Expr::Lit(expr_lit) = &*assign.right {
+                                if let syn::Lit::Str(lit_str) = &expr_lit.lit {
+                                    Some(lit_str.value())
+                                } else {
+                                    return syn::Error::new_spanned(&expr_lit, "expected string literal")
+                                        .to_compile_error()
+                                        .into();
+                                }
+                            } else {
+                                return syn::Error::new_spanned(&assign.right, "expected string literal")
+                                    .to_compile_error()
+                                    .into();
+                            }
+                        } else {
+                            return syn::Error::new_spanned(&path, "unknown attribute argument")
+                                .to_compile_error()
+                                .into();
+                        }
+                    } else {
+                        return syn::Error::new_spanned(&assign.left, "expected identifier")
+                            .to_compile_error()
+                            .into();
+                    }
+                } else {
+                    return syn::Error::new_spanned(&attr_parser, "expected assignment")
+                        .to_compile_error()
+                        .into();
+                }
+            }
+            Err(err) => return err.to_compile_error().into(),
+        }
+    };
 
     let mut trait_functions: Vec<trait_schema::FunctionSchema> = Vec::new();
 
@@ -69,6 +111,7 @@ pub fn trait_schema(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_schema = trait_schema::TraitSchema {
         name: trait_name_string,
         functions: trait_functions,
+        cffi_generic_specialization,
     };
 
     let trait_tokens: proc_macro2::TokenStream = trait_schema.into();

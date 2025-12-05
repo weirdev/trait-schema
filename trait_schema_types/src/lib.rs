@@ -11,6 +11,7 @@ use crate as trait_schema;
 pub struct TraitSchema {
     pub name: String,
     pub functions: Vec<FunctionSchema>,
+    pub cffi_generic_specialization: Option<String>,
 }
 
 impl Into<proc_macro2::TokenStream> for TraitSchema {
@@ -22,6 +23,13 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
             .map(|f| Into::<proc_macro2::TokenStream>::into(f))
             .collect::<Punctuated<_, Comma>>();
 
+        let cffi_generic_specialization_tokens = if let Some(spec) = self.cffi_generic_specialization {
+            let spec_lit = proc_macro2::Literal::string(&spec);
+            quote! { ::std::option::Option::Some(::std::string::String::from(#spec_lit)) }
+        } else {
+            quote! { ::std::option::Option::None }
+        };
+
         quote! {
             {
                 let functions = ::std::vec![
@@ -30,6 +38,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
                     ::trait_schema::TraitSchema {
                         name: ::std::string::String::from(#name_lit),
                         functions: functions,
+                        cffi_generic_specialization: #cffi_generic_specialization_tokens,
                     }
             }
         }
@@ -334,6 +343,7 @@ mod tests {
         let schema = TraitSchema {
             name: "MyTrait".to_string(),
             functions,
+            cffi_generic_specialization: None,
         };
 
         assert_eq!(schema.name, "MyTrait");
