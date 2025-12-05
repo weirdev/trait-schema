@@ -12,7 +12,7 @@ mod tests {
         let schema = TraitSchema {
             name: "MyTrait".to_string(),
             functions: vec![],
-            cffi_generic_specialization: None,
+            generics: vec![],
         };
         assert_eq!(schema.name, "MyTrait");
         assert!(schema.functions.is_empty());
@@ -24,7 +24,7 @@ mod tests {
         let schema = TraitSchema {
             name: "MyTrait".to_string(),
             functions: vec![],
-            cffi_generic_specialization: None,
+            generics: vec![],
         };
         let tokens: TokenStream = schema.into();
         let s = tokens.to_string();

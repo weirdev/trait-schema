@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, ItemTrait, LitInt, Receiver, ReturnType, TraitItem, parse_macro_input};
+use syn::{FnArg, GenericParam, ItemTrait, LitInt, Receiver, ReturnType, TraitItem, parse_macro_input};
 
 use trait_schema_types as trait_schema;
 
@@ -11,107 +11,20 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Generated schema function name
     let schema_fn_ident = format_ident!("{}_schema", trait_ident);
 
-    // Parse optional attribute argument
-    let cffi_generic_specialization = if attr.is_empty() {
-        None
-    } else {
-        match syn::parse::<syn::Expr>(attr) {
-            Ok(attr_parser) => {
-                if let syn::Expr::Assign(assign) = attr_parser {
-                    if let syn::Expr::Path(path) = &*assign.left {
-                        if path.path.is_ident("cffi_generic_specialization") {
-                            if let syn::Expr::Lit(expr_lit) = &*assign.right {
-                                if let syn::Lit::Str(lit_str) = &expr_lit.lit {
-                                    Some(lit_str.value())
-                                } else {
-                                    return syn::Error::new_spanned(&expr_lit, "expected string literal")
-                                        .to_compile_error()
-                                        .into();
-                                }
-                            } else {
-                                return syn::Error::new_spanned(&assign.right, "expected string literal")
-                                    .to_compile_error()
-                                    .into();
-                            }
-                        } else {
-                            return syn::Error::new_spanned(&path, "unknown attribute argument")
-                                .to_compile_error()
-                                .into();
-                        }
-                    } else {
-                        return syn::Error::new_spanned(&assign.left, "expected identifier")
-                            .to_compile_error()
-                            .into();
-                    }
-                } else {
-                    return syn::Error::new_spanned(&attr_parser, "expected assignment")
-                        .to_compile_error()
-                        .into();
-                }
-            }
-            Err(err) => return err.to_compile_error().into(),
-        }
-    };
+    // Parse generic parameter annotations from trait-level attribute
+    // Format: #[trait_schema] or #[trait_schema(T = "cffi_type", U = "other_cffi_type")]
+    let generic_annotations = parse_generic_annotations_attr(proc_macro2::TokenStream::from(attr));
 
-    let mut trait_functions: Vec<trait_schema::FunctionSchema> = Vec::new();
+    // Build generics and functions using helper routines
+    let trait_generics = build_trait_generics(&input.generics, &generic_annotations);
 
-    for it in &mut input.items {
-        if let TraitItem::Fn(m) = it {
-            let sig = &mut m.sig;
-
-            trait_functions.push(trait_schema::FunctionSchema {
-                name: sig.ident.to_string(),
-                args: sig
-                    .inputs
-                    .iter_mut()
-                    .filter_map(|arg| {
-                        if let FnArg::Typed(pat_type) = arg {
-                            let arg_name = if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
-                                format!("{}", quote! { #pat_ident })
-                            } else {
-                                "".to_string()
-                            };
-                            // eprintln!("{:#?}", quote! { #pat_type });
-                            let arg_ty = &*pat_type.ty;
-                            let arg_ty = format!("{}", quote! { #arg_ty });
-                            // let ty = match ty {
-                            //     Type::Reference(ty_ref) => Some(format!("{}", quote! { #ty_ref }))
-                            //     Type::Path(ty_path) => Some(format!("{}", quote! { #ty_path })),
-                            //     _ => Some(format!("{}", quote! { #ty })),
-                            // };
-
-                            let annotations = process_fn_arg_annotations(arg);
-
-                            Some(trait_schema::FunctionArgSchema {
-                                name: arg_name,
-                                ty: Some(arg_ty),
-                                annotations: Some(annotations),
-                            })
-                        } else if let FnArg::Receiver(Receiver { .. }) = arg {
-                            Some(trait_schema::FunctionArgSchema {
-                                name: "self".to_string(),
-                                ty: None,
-                                annotations: None,
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-                return_type: match &sig.output {
-                    ReturnType::Default => "()".to_string(),
-                    ReturnType::Type(_, ty) => format!("{}", quote! { #ty }),
-                },
-                body: None, // No body for trait methods
-            });
-        }
-    }
+    let trait_functions = extract_trait_functions(&mut input.items);
 
     let trait_name_string = trait_ident.to_string();
     let trait_schema = trait_schema::TraitSchema {
         name: trait_name_string,
         functions: trait_functions,
-        cffi_generic_specialization,
+        generics: trait_generics,
     };
 
     let trait_tokens: proc_macro2::TokenStream = trait_schema.into();
@@ -164,6 +77,132 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
     }
 
     info
+}
+
+/// Parse generic parameter annotations from trait attribute
+/// Format: #[trait_schema] or #[trait_schema(T = "ptr<void>", U = "ptr<f32>")]
+fn parse_generic_annotations_attr(tokens: proc_macro2::TokenStream) -> std::collections::HashMap<String, String> {
+    let mut result = std::collections::HashMap::new();
+    let mut iter = tokens.into_iter().peekable();
+    while iter.peek().is_some() {
+        // Expect: identifier
+        let param_name = match iter.next() {
+            Some(proc_macro2::TokenTree::Ident(ident)) => ident.to_string(),
+            _ => break,
+        };
+        // Expect: =
+        match iter.next() {
+            Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == '=' => {},
+            _ => break,
+        }
+        // Expect: string literal
+        let cffi_type = match iter.next() {
+            Some(proc_macro2::TokenTree::Literal(lit)) => {
+                let lit_str = lit.to_string();
+                if lit_str.starts_with('"') && lit_str.ends_with('"') {
+                    lit_str[1..lit_str.len()-1].to_string()
+                } else {
+                    break;
+                }
+            },
+            _ => break,
+        };
+        result.insert(param_name, cffi_type);
+        // Expect optional: comma
+        match iter.peek() {
+            Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == ',' => {
+                iter.next(); // consume comma
+            },
+            None => break,
+            _ => break,
+        }
+    }
+    result
+}
+
+/// Build a vector of `GenericParamSchema` from `syn::Generics` and parsed annotations.
+fn build_trait_generics(
+    generics: &syn::Generics,
+    generic_annotations: &std::collections::HashMap<String, String>,
+) -> Vec<trait_schema::GenericParamSchema> {
+    let mut trait_generics: Vec<trait_schema::GenericParamSchema> = Vec::new();
+
+    for generic_param in &generics.params {
+        if let GenericParam::Type(type_param) = generic_param {
+            let param_name = type_param.ident.to_string();
+            let cffi_type = generic_annotations.get(&param_name).cloned();
+            let annotations = if cffi_type.is_some() {
+                Some(trait_schema::GenericParamAnnotations { cffi_type })
+            } else {
+                None
+            };
+
+            trait_generics.push(trait_schema::GenericParamSchema {
+                name: param_name,
+                annotations,
+            });
+        }
+    }
+
+    trait_generics
+}
+
+/// Extract function schemas from the trait items, parsing argument annotations.
+fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::FunctionSchema> {
+    let mut trait_functions: Vec<trait_schema::FunctionSchema> = Vec::new();
+
+    for it in items.iter_mut() {
+        if let TraitItem::Fn(m) = it {
+            let sig = &mut m.sig;
+
+            let args: Vec<trait_schema::FunctionArgSchema> = sig
+                .inputs
+                .iter_mut()
+                .filter_map(|arg| {
+                    if let FnArg::Typed(pat_type) = arg {
+                        let arg_name = if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
+                            format!("{}", quote! { #pat_ident })
+                        } else {
+                            "".to_string()
+                        };
+
+                        let arg_ty = &*pat_type.ty;
+                        let arg_ty = format!("{}", quote! { #arg_ty });
+
+                        let annotations = process_fn_arg_annotations(arg);
+
+                        Some(trait_schema::FunctionArgSchema {
+                            name: arg_name,
+                            ty: Some(arg_ty),
+                            annotations: Some(annotations),
+                        })
+                    } else if let FnArg::Receiver(Receiver { .. }) = arg {
+                        Some(trait_schema::FunctionArgSchema {
+                            name: "self".to_string(),
+                            ty: None,
+                            annotations: None,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let return_type = match &sig.output {
+                ReturnType::Default => "()".to_string(),
+                ReturnType::Type(_, ty) => format!("{}", quote! { #ty }),
+            };
+
+            trait_functions.push(trait_schema::FunctionSchema {
+                name: sig.ident.to_string(),
+                args,
+                return_type,
+                body: None,
+            });
+        }
+    }
+
+    trait_functions
 }
 
 #[cfg(test)]
@@ -281,5 +320,61 @@ mod tests {
         } else {
             panic!("Expected FnArg::Typed");
         }
+    }
+
+    #[test]
+    fn test_parse_generic_annotations_attr_empty() {
+        let tokens = proc_macro2::TokenStream::new();
+        let result = parse_generic_annotations_attr(tokens);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_generic_annotations_attr_single() {
+        let tokens = quote::quote!(T = "ptr<void>");
+        let result = parse_generic_annotations_attr(tokens);
+        assert_eq!(result.get("T"), Some(&"ptr<void>".to_string()));
+    }
+
+    #[test]
+    fn test_parse_generic_annotations_attr_multiple() {
+        let tokens = quote::quote!(T = "ptr<void>", U = "ptr<f32>");
+        let result = parse_generic_annotations_attr(tokens);
+        assert_eq!(result.get("T"), Some(&"ptr<void>".to_string()));
+        assert_eq!(result.get("U"), Some(&"ptr<f32>".to_string()));
+    }
+
+    #[test]
+    fn test_build_trait_generics_basic() {
+        let generics: syn::Generics = parse_quote!(<T, U>);
+        let mut annotations = std::collections::HashMap::new();
+        annotations.insert("T".to_string(), "ptr<void>".to_string());
+        let result = build_trait_generics(&generics, &annotations);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "T");
+        assert_eq!(result[0].annotations.as_ref().unwrap().cffi_type, Some("ptr<void>".to_string()));
+        assert_eq!(result[1].name, "U");
+        assert!(result[1].annotations.is_none());
+    }
+
+    #[test]
+    fn test_extract_trait_functions_basic() {
+        let mut items: Vec<TraitItem> = vec![
+            parse_quote! {
+                fn foo(&self, x: i32) -> i32;
+            },
+            parse_quote! {
+                fn bar(&mut self);
+            },
+        ];
+        let result = extract_trait_functions(&mut items);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "foo");
+        assert_eq!(result[0].args[0].name, "self");
+        assert_eq!(result[0].args[1].name, "x");
+        assert_eq!(result[0].return_type, "i32");
+        assert_eq!(result[1].name, "bar");
+        assert_eq!(result[1].args[0].name, "self");
+        assert_eq!(result[1].return_type, "()".to_string());
     }
 }

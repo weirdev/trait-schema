@@ -32,7 +32,7 @@ trait ComplexTrait {
     ) -> String;
 }
 
-#[trait_schema(cffi_generic_specialization = "f64")]
+#[trait_schema(T = "ptr<void>")]
 trait SpecializedTrait<T> {
     fn specialized_method(&self, value: T) -> String;
 }
@@ -79,5 +79,12 @@ fn main() {
     println!("\n=== SpecializedTrait Schema ===");
     let specialized_trait_schema = SpecializedTrait_schema();
     println!("{:#?}", specialized_trait_schema);
-    println!("cffi_generic_specialization: {:?}", specialized_trait_schema.cffi_generic_specialization);
+    println!("Generic parameters: {:?}", specialized_trait_schema.generics.len());
+    for generic in &specialized_trait_schema.generics {
+        println!(
+            "  Generic: {} - cffi_type: {:?}",
+            generic.name,
+            generic.annotations.as_ref().and_then(|a| a.cffi_type.clone())
+        );
+    }
 }

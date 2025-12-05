@@ -8,10 +8,61 @@ use syn::{punctuated::Punctuated, token::Comma};
 use crate as trait_schema;
 
 #[derive(Debug)]
+pub struct GenericParamAnnotations {
+    pub cffi_type: Option<String>,
+}
+
+impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
+    fn into(self) -> proc_macro2::TokenStream {
+        let cffi_type = self.cffi_type.as_ref().map(|s| proc_macro2::Literal::string(s))
+            .map(|lit| quote! { Some(::std::string::String::from(#lit)) })
+            .unwrap_or(quote! { None });
+        quote! {
+            ::trait_schema::GenericParamAnnotations {
+                cffi_type: #cffi_type,
+            }
+        }
+    }
+}
+
+impl GenericParamAnnotations {
+    pub fn new() -> Self {
+        GenericParamAnnotations {
+            cffi_type: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GenericParamSchema {
+    pub name: String,
+    pub annotations: Option<GenericParamAnnotations>,
+}
+
+impl Into<proc_macro2::TokenStream> for GenericParamSchema {
+    fn into(self) -> proc_macro2::TokenStream {
+        let name_lit = proc_macro2::Literal::string(&self.name);
+        let annotations_tokens = if let Some(annotations) = self.annotations {
+            let annotations_ts: proc_macro2::TokenStream = annotations.into();
+            quote! { Some(#annotations_ts) }
+        } else {
+            quote! { None }
+        };
+
+        quote! {
+            ::trait_schema::GenericParamSchema {
+                name: ::std::string::String::from(#name_lit),
+                annotations: #annotations_tokens,
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TraitSchema {
     pub name: String,
     pub functions: Vec<FunctionSchema>,
-    pub cffi_generic_specialization: Option<String>,
+    pub generics: Vec<GenericParamSchema>,
 }
 
 impl Into<proc_macro2::TokenStream> for TraitSchema {
@@ -23,22 +74,24 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
             .map(|f| Into::<proc_macro2::TokenStream>::into(f))
             .collect::<Punctuated<_, Comma>>();
 
-        let cffi_generic_specialization_tokens = if let Some(spec) = self.cffi_generic_specialization {
-            let spec_lit = proc_macro2::Literal::string(&spec);
-            quote! { ::std::option::Option::Some(::std::string::String::from(#spec_lit)) }
-        } else {
-            quote! { ::std::option::Option::None }
-        };
+        let generics_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
+            .generics
+            .into_iter()
+            .map(|g| Into::<proc_macro2::TokenStream>::into(g))
+            .collect::<Punctuated<_, Comma>>();
 
         quote! {
             {
                 let functions = ::std::vec![
                     #field_tokens
                 ];
+                let generics = ::std::vec![
+                    #generics_tokens
+                ];
                     ::trait_schema::TraitSchema {
                         name: ::std::string::String::from(#name_lit),
                         functions: functions,
-                        cffi_generic_specialization: #cffi_generic_specialization_tokens,
+                        generics: generics,
                     }
             }
         }
@@ -343,13 +396,14 @@ mod tests {
         let schema = TraitSchema {
             name: "MyTrait".to_string(),
             functions,
-            cffi_generic_specialization: None,
+            generics: vec![],
         };
 
         assert_eq!(schema.name, "MyTrait");
         assert_eq!(schema.functions.len(), 2);
         assert_eq!(schema.functions[0].name, "method1");
         assert_eq!(schema.functions[1].name, "method2");
+        assert_eq!(schema.generics.len(), 0);
     }
 
     #[test]
@@ -376,5 +430,68 @@ mod tests {
 
         assert_eq!(arg.name, "self");
         assert!(arg.ty.is_none());
+    }
+
+    #[test]
+    fn test_generic_param_annotations_new() {
+        let annotations = GenericParamAnnotations::new();
+        assert!(annotations.cffi_type.is_none());
+    }
+
+    #[test]
+    fn test_generic_param_annotations_with_cffi_type() {
+        let annotations = GenericParamAnnotations {
+            cffi_type: Some("ptr<void>".to_string()),
+        };
+        assert_eq!(annotations.cffi_type, Some("ptr<void>".to_string()));
+    }
+
+    #[test]
+    fn test_generic_param_schema_creation() {
+        let param = GenericParamSchema {
+            name: "T".to_string(),
+            annotations: Some(GenericParamAnnotations {
+                cffi_type: Some("ptr<i32>".to_string()),
+            }),
+        };
+
+        assert_eq!(param.name, "T");
+        assert!(param.annotations.is_some());
+        if let Some(ann) = param.annotations {
+            assert_eq!(ann.cffi_type, Some("ptr<i32>".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_generic_param_schema_without_annotations() {
+        let param = GenericParamSchema {
+            name: "U".to_string(),
+            annotations: None,
+        };
+
+        assert_eq!(param.name, "U");
+        assert!(param.annotations.is_none());
+    }
+
+    #[test]
+    fn test_trait_schema_with_generics() {
+        let generics = vec![
+            GenericParamSchema {
+                name: "T".to_string(),
+                annotations: Some(GenericParamAnnotations {
+                    cffi_type: Some("ptr<void>".to_string()),
+                }),
+            },
+        ];
+
+        let schema = TraitSchema {
+            name: "SpecializedTrait".to_string(),
+            functions: vec![],
+            generics,
+        };
+
+        assert_eq!(schema.name, "SpecializedTrait");
+        assert_eq!(schema.generics.len(), 1);
+        assert_eq!(schema.generics[0].name, "T");
     }
 }
