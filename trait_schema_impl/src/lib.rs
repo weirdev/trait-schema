@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, GenericParam, ItemTrait, LitInt, Receiver, ReturnType, TraitItem, parse_macro_input};
+use syn::{
+    parse_macro_input, FnArg, GenericParam, ItemTrait, LitInt, Receiver, ReturnType, TraitItem,
+};
 
 use trait_schema_types as trait_schema;
 
@@ -81,7 +83,9 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
 
 /// Parse generic parameter annotations from trait attribute
 /// Format: #[trait_schema] or #[trait_schema(T = "ptr<void>", U = "ptr<f32>")]
-fn parse_generic_annotations_attr(tokens: proc_macro2::TokenStream) -> std::collections::HashMap<String, String> {
+fn parse_generic_annotations_attr(
+    tokens: proc_macro2::TokenStream,
+) -> std::collections::HashMap<String, String> {
     let mut result = std::collections::HashMap::new();
     let mut iter = tokens.into_iter().peekable();
     while iter.peek().is_some() {
@@ -92,7 +96,7 @@ fn parse_generic_annotations_attr(tokens: proc_macro2::TokenStream) -> std::coll
         };
         // Expect: =
         match iter.next() {
-            Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == '=' => {},
+            Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == '=' => {}
             _ => break,
         }
         // Expect: string literal
@@ -100,11 +104,11 @@ fn parse_generic_annotations_attr(tokens: proc_macro2::TokenStream) -> std::coll
             Some(proc_macro2::TokenTree::Literal(lit)) => {
                 let lit_str = lit.to_string();
                 if lit_str.starts_with('"') && lit_str.ends_with('"') {
-                    lit_str[1..lit_str.len()-1].to_string()
+                    lit_str[1..lit_str.len() - 1].to_string()
                 } else {
                     break;
                 }
-            },
+            }
             _ => break,
         };
         result.insert(param_name, cffi_type);
@@ -112,7 +116,7 @@ fn parse_generic_annotations_attr(tokens: proc_macro2::TokenStream) -> std::coll
         match iter.peek() {
             Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == ',' => {
                 iter.next(); // consume comma
-            },
+            }
             None => break,
             _ => break,
         }
@@ -198,6 +202,7 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
                 args,
                 return_type,
                 body: None,
+                extern_layout: None,
             });
         }
     }
@@ -214,7 +219,7 @@ mod tests {
     fn test_process_fn_arg_annotations_no_annotations() {
         let mut arg: FnArg = parse_quote!(arg1: String);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert!(!annotations.collection_as_item);
         assert!(annotations.assert_len.is_none());
     }
@@ -223,7 +228,7 @@ mod tests {
     fn test_process_fn_arg_annotations_collection_as_item() {
         let mut arg: FnArg = parse_quote!(#[arg(collection_as_item)] arg1: Vec<String>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert!(annotations.collection_as_item);
         assert!(annotations.assert_len.is_none());
     }
@@ -232,16 +237,17 @@ mod tests {
     fn test_process_fn_arg_annotations_assert_len() {
         let mut arg: FnArg = parse_quote!(#[arg(assert_len = 5)] arg1: Vec<String>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert!(!annotations.collection_as_item);
         assert_eq!(annotations.assert_len, Some(5));
     }
 
     #[test]
     fn test_process_fn_arg_annotations_combined() {
-        let mut arg: FnArg = parse_quote!(#[arg(collection_as_item, assert_len = 10)] arg1: Vec<String>);
+        let mut arg: FnArg =
+            parse_quote!(#[arg(collection_as_item, assert_len = 10)] arg1: Vec<String>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert!(annotations.collection_as_item);
         assert_eq!(annotations.assert_len, Some(10));
     }
@@ -250,7 +256,7 @@ mod tests {
     fn test_process_fn_arg_annotations_multiple_values() {
         let mut arg: FnArg = parse_quote!(#[arg(assert_len = 42)] arg1: Vec<i32>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert_eq!(annotations.assert_len, Some(42));
     }
 
@@ -258,10 +264,13 @@ mod tests {
     fn test_process_fn_arg_annotations_removes_arg_attribute() {
         let mut arg: FnArg = parse_quote!(#[arg(collection_as_item)] arg1: Vec<String>);
         process_fn_arg_annotations(&mut arg);
-        
+
         if let FnArg::Typed(pat_type) = &arg {
             // The #[arg(...)] attribute should be removed
-            let has_arg_attr = pat_type.attrs.iter().any(|attr| attr.path().is_ident("arg"));
+            let has_arg_attr = pat_type
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("arg"));
             assert!(!has_arg_attr);
         } else {
             panic!("Expected FnArg::Typed");
@@ -272,7 +281,7 @@ mod tests {
     fn test_process_fn_arg_annotations_zero_assert_len() {
         let mut arg: FnArg = parse_quote!(#[arg(assert_len = 0)] arg1: Vec<String>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert_eq!(annotations.assert_len, Some(0));
     }
 
@@ -280,7 +289,7 @@ mod tests {
     fn test_process_fn_arg_annotations_large_assert_len() {
         let mut arg: FnArg = parse_quote!(#[arg(assert_len = 999999)] arg1: Vec<String>);
         let annotations = process_fn_arg_annotations(&mut arg);
-        
+
         assert_eq!(annotations.assert_len, Some(999999));
     }
 
@@ -298,7 +307,7 @@ mod tests {
             assert_len: Some(25),
             cffi_type: Some("opt_ptr<f32>".to_string()),
         };
-        
+
         assert!(annotations.collection_as_item);
         assert_eq!(annotations.assert_len, Some(25));
         assert_eq!(annotations.cffi_type, Some("opt_ptr<f32>".to_string()));
@@ -315,7 +324,10 @@ mod tests {
 
         // Ensure the attribute was removed from the typed arg
         if let FnArg::Typed(pat_type) = &arg {
-            let has_arg_attr = pat_type.attrs.iter().any(|attr| attr.path().is_ident("arg"));
+            let has_arg_attr = pat_type
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("arg"));
             assert!(!has_arg_attr);
         } else {
             panic!("Expected FnArg::Typed");
@@ -352,7 +364,10 @@ mod tests {
         let result = build_trait_generics(&generics, &annotations);
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].name, "T");
-        assert_eq!(result[0].annotations.as_ref().unwrap().cffi_type, Some("ptr<void>".to_string()));
+        assert_eq!(
+            result[0].annotations.as_ref().unwrap().cffi_type,
+            Some("ptr<void>".to_string())
+        );
         assert_eq!(result[1].name, "U");
         assert!(result[1].annotations.is_none());
     }

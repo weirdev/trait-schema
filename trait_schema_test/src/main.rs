@@ -79,12 +79,18 @@ fn main() {
     println!("\n=== SpecializedTrait Schema ===");
     let specialized_trait_schema = SpecializedTrait_schema();
     println!("{:#?}", specialized_trait_schema);
-    println!("Generic parameters: {:?}", specialized_trait_schema.generics.len());
+    println!(
+        "Generic parameters: {:?}",
+        specialized_trait_schema.generics.len()
+    );
     for generic in &specialized_trait_schema.generics {
         println!(
             "  Generic: {} - cffi_type: {:?}",
             generic.name,
-            generic.annotations.as_ref().and_then(|a| a.cffi_type.clone())
+            generic
+                .annotations
+                .as_ref()
+                .and_then(|a| a.cffi_type.clone())
         );
     }
 }

@@ -14,7 +14,10 @@ pub struct GenericParamAnnotations {
 
 impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
     fn into(self) -> proc_macro2::TokenStream {
-        let cffi_type = self.cffi_type.as_ref().map(|s| proc_macro2::Literal::string(s))
+        let cffi_type = self
+            .cffi_type
+            .as_ref()
+            .map(|s| proc_macro2::Literal::string(s))
             .map(|lit| quote! { Some(::std::string::String::from(#lit)) })
             .unwrap_or(quote! { None });
         quote! {
@@ -27,9 +30,7 @@ impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
 
 impl GenericParamAnnotations {
     pub fn new() -> Self {
-        GenericParamAnnotations {
-            cffi_type: None,
-        }
+        GenericParamAnnotations { cffi_type: None }
     }
 }
 
@@ -104,6 +105,7 @@ pub struct FunctionSchema {
     pub args: Vec<FunctionArgSchema>,
     pub return_type: String,
     pub body: Option<String>,
+    pub extern_layout: Option<String>,
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionSchema {
@@ -127,6 +129,17 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
             }
         };
 
+        let extern_layout = if let Some(extern_layout) = self.extern_layout {
+            let extern_layout = proc_macro2::Literal::string(&extern_layout);
+            quote! {
+                Some(::std::string::String::from(#extern_layout))
+            }
+        } else {
+            quote! {
+                None
+            }
+        };
+
         quote! {
             ::trait_schema::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
@@ -135,6 +148,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
                 ],
                 return_type: ::std::string::String::from(#return_type_lit),
                 body: #body,
+                extern_layout: #extern_layout,
             }
         }
     }
@@ -142,6 +156,9 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
 
 impl Display for FunctionSchema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(extern_layout) = &self.extern_layout {
+            write!(f, "extern \"{}\" ", extern_layout)?;
+        }
         write!(f, "fn {}(", self.name)?;
         for (i, arg) in self.args.iter().enumerate() {
             if i > 0 {
@@ -212,7 +229,10 @@ pub struct FnArgAnnotations {
 impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
     fn into(self) -> proc_macro2::TokenStream {
         let collection_as_item = self.collection_as_item;
-        let cffi_type = self.cffi_type.as_ref().map(|s| proc_macro2::Literal::string(s))
+        let cffi_type = self
+            .cffi_type
+            .as_ref()
+            .map(|s| proc_macro2::Literal::string(s))
             .map(|lit| quote! { Some(::std::string::String::from(#lit)) })
             .unwrap_or(quote! { None });
         let assert_len = match self.assert_len {
@@ -315,6 +335,7 @@ mod tests {
             args,
             return_type: "bool".to_string(),
             body: None,
+            extern_layout: None,
         };
 
         assert_eq!(func.name, "test_fn");
@@ -343,6 +364,7 @@ mod tests {
             args,
             return_type: "bool".to_string(),
             body: None,
+            extern_layout: None,
         };
 
         let display_str = format!("{}", func);
@@ -361,6 +383,7 @@ mod tests {
             args,
             return_type: "String".to_string(),
             body: Some("return \"hello\".to_string();".to_string()),
+            extern_layout: None,
         };
 
         let display_str = format!("{}", func);
@@ -378,18 +401,18 @@ mod tests {
                 args: vec![],
                 return_type: "()".to_string(),
                 body: None,
+                extern_layout: None,
             },
             FunctionSchema {
                 name: "method2".to_string(),
-                args: vec![
-                    FunctionArgSchema {
-                        name: "arg".to_string(),
-                        ty: Some("String".to_string()),
-                        annotations: None,
-                    },
-                ],
+                args: vec![FunctionArgSchema {
+                    name: "arg".to_string(),
+                    ty: Some("String".to_string()),
+                    annotations: None,
+                }],
                 return_type: "String".to_string(),
                 body: None,
+                extern_layout: None,
             },
         ];
 
@@ -413,6 +436,7 @@ mod tests {
             args: vec![],
             return_type: "()".to_string(),
             body: None,
+            extern_layout: None,
         };
 
         assert_eq!(func.args.len(), 0);
@@ -475,14 +499,12 @@ mod tests {
 
     #[test]
     fn test_trait_schema_with_generics() {
-        let generics = vec![
-            GenericParamSchema {
-                name: "T".to_string(),
-                annotations: Some(GenericParamAnnotations {
-                    cffi_type: Some("ptr<void>".to_string()),
-                }),
-            },
-        ];
+        let generics = vec![GenericParamSchema {
+            name: "T".to_string(),
+            annotations: Some(GenericParamAnnotations {
+                cffi_type: Some("ptr<void>".to_string()),
+            }),
+        }];
 
         let schema = TraitSchema {
             name: "SpecializedTrait".to_string(),
