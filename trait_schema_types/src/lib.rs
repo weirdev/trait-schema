@@ -106,6 +106,7 @@ pub struct FunctionSchema {
     pub return_type: String,
     pub body: Option<String>,
     pub extern_layout: Option<String>,
+    pub annotations: Option<FunctionAnnotations>,
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionSchema {
@@ -140,6 +141,13 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
             }
         };
 
+        let annotations_tokens = if let Some(annotations) = self.annotations {
+            let annotations_ts: proc_macro2::TokenStream = annotations.into();
+            quote! { Some(#annotations_ts) }
+        } else {
+            quote! { None }
+        };
+
         quote! {
             ::trait_schema::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
@@ -149,6 +157,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
                 return_type: ::std::string::String::from(#return_type_lit),
                 body: #body,
                 extern_layout: #extern_layout,
+                annotations: #annotations_tokens,
             }
         }
     }
@@ -180,6 +189,28 @@ impl Display for FunctionSchema {
             write!(f, ";")?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionAnnotations {
+    pub cffi_impl_no_op: bool,
+}
+
+impl Into<proc_macro2::TokenStream> for FunctionAnnotations {
+    fn into(self) -> proc_macro2::TokenStream {
+        let cffi_impl_no_op = self.cffi_impl_no_op;
+        quote! {
+            ::trait_schema::FunctionAnnotations {
+                cffi_impl_no_op: #cffi_impl_no_op,
+            }
+        }
+    }
+}
+
+impl FunctionAnnotations {
+    pub fn new() -> Self {
+        FunctionAnnotations { cffi_impl_no_op: false }
     }
 }
 
@@ -336,6 +367,7 @@ mod tests {
             return_type: "bool".to_string(),
             body: None,
             extern_layout: None,
+            annotations: None,
         };
 
         assert_eq!(func.name, "test_fn");
@@ -365,6 +397,7 @@ mod tests {
             return_type: "bool".to_string(),
             body: None,
             extern_layout: None,
+            annotations: None,
         };
 
         let display_str = format!("{}", func);
@@ -384,6 +417,7 @@ mod tests {
             return_type: "String".to_string(),
             body: Some("return \"hello\".to_string();".to_string()),
             extern_layout: None,
+            annotations: None,
         };
 
         let display_str = format!("{}", func);
@@ -402,6 +436,7 @@ mod tests {
                 return_type: "()".to_string(),
                 body: None,
                 extern_layout: None,
+                annotations: None,
             },
             FunctionSchema {
                 name: "method2".to_string(),
@@ -413,6 +448,7 @@ mod tests {
                 return_type: "String".to_string(),
                 body: None,
                 extern_layout: None,
+                annotations: None,
             },
         ];
 
@@ -437,6 +473,7 @@ mod tests {
             return_type: "()".to_string(),
             body: None,
             extern_layout: None,
+            annotations: None,
         };
 
         assert_eq!(func.args.len(), 0);

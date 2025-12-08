@@ -10,6 +10,7 @@ trait MyTrait {
 #[trait_schema]
 trait SimpleTrait {
     fn method_one(&self, arg1: String) -> i32;
+    #[func(cffi_impl_no_op)]
     fn method_two(&self, arg2: i32) -> String;
 }
 

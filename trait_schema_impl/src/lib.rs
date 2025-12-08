@@ -81,6 +81,26 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
     info
 }
 
+/// Parse function-level annotations on trait methods (#[func(...)]).
+fn process_fn_annotations(func: &mut syn::TraitItemFn) -> trait_schema::FunctionAnnotations {
+    let mut info = trait_schema::FunctionAnnotations::new();
+    for attr in &func.attrs {
+        if attr.path().is_ident("func") {
+            // Parse nested meta inside #[func(...)]
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("cffi_impl_no_op") {
+                    info.cffi_impl_no_op = true;
+                    return Ok(());
+                }
+                Ok(())
+            });
+        }
+    }
+    // remove the parsed attribute so downstream consumers don't see it
+    func.attrs.retain(|a| !a.path().is_ident("func"));
+    info
+}
+
 /// Parse generic parameter annotations from trait attribute
 /// Format: #[trait_schema] or #[trait_schema(T = "ptr<void>", U = "ptr<f32>")]
 fn parse_generic_annotations_attr(
@@ -157,6 +177,7 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
 
     for it in items.iter_mut() {
         if let TraitItem::Fn(m) = it {
+            let fn_annotations = process_fn_annotations(m);
             let sig = &mut m.sig;
 
             let args: Vec<trait_schema::FunctionArgSchema> = sig
@@ -203,6 +224,7 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
                 return_type,
                 body: None,
                 extern_layout: None,
+                annotations: Some(fn_annotations),
             });
         }
     }
@@ -391,5 +413,28 @@ mod tests {
         assert_eq!(result[1].name, "bar");
         assert_eq!(result[1].args[0].name, "self");
         assert_eq!(result[1].return_type, "()".to_string());
+    }
+
+    #[test]
+    fn test_process_fn_annotations_no_attr() {
+        let mut func: syn::TraitItemFn = parse_quote!(fn foo(&self););
+        let annotations = process_fn_annotations(&mut func);
+
+        assert!(!annotations.cffi_impl_no_op);
+        // ensure attribute wasn't present (and thus none removed)
+        let has_func_attr = func.attrs.iter().any(|a| a.path().is_ident("func"));
+        assert!(!has_func_attr);
+    }
+
+    #[test]
+    fn test_process_fn_annotations_cffi_impl_no_op() {
+        let mut func: syn::TraitItemFn = parse_quote!(#[func(cffi_impl_no_op)] fn foo(&self););
+        let annotations = process_fn_annotations(&mut func);
+
+        assert!(annotations.cffi_impl_no_op);
+
+        // The #[func(...)] attribute should be removed from the function
+        let has_func_attr = func.attrs.iter().any(|a| a.path().is_ident("func"));
+        assert!(!has_func_attr);
     }
 }
