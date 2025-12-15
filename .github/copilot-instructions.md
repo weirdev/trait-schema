@@ -1,57 +1,56 @@
-This repository contains a small multi-crate Rust project that demonstrates a procedural macro which emits a "schema" representation for traits.
+# Trait Schema - Copilot Instructions
 
-Key points an AI agent should know to be immediately productive:
+This repository contains a multi-crate Rust project demonstrating a procedural macro that emits a "schema" representation for traits, useful for generating FFI bindings and trait metadata.
 
-- Architecture (high-level)
-  - `trait_schema/` — a convenience crate that re-exports the proc-macro and shared types. See `trait_schema/src/lib.rs`.
-  - `trait_schema_impl/` — proc-macro crate. The attribute macro is `#[trait_schema]` implemented in `trait_schema_impl/src/lib.rs`. It parses an `ItemTrait` and emits a function named `<TraitName>_schema()` that returns a `TraitSchema`.
-  - `trait_schema_types/` — shared types used by the macro (`TraitSchema`, `FunctionSchema`, `FunctionArgSchema`, `FnArgAnnotations`). These types implement `Into<proc_macro2::TokenStream>` to allow the macro to serialize them into generated code. See `trait_schema_types/src/lib.rs` for generation and Display examples.
-  - `trait_schema_test/` — example binary that uses `#[trait_schema]` on several traits and prints the generated schemas. See `trait_schema_test/src/main.rs` for concrete usage examples and expected output.
+## Architecture
 
-- Build / test workflows (how to run things)
-  - There is no single workspace Cargo manifest at the repo root. Run cargo per crate or use `--manifest-path` from the repo root.
-    - Build or test the proc-macro crate:
-      ```powershell
-      cd trait_schema_impl
-      cargo test
-      ```
-      or from repo root:
-      ```powershell
-      cargo test --manifest-path trait_schema_impl/Cargo.toml
-      ```
-    - Run the example binary:
-      ```powershell
-      cd trait_schema_test
-      cargo run
-      ```
-      or from repo root:
-      ```powershell
-      cargo run --manifest-path trait_schema_test/Cargo.toml
-      ```
-  - The tests in `trait_schema_impl` and `trait_schema_types` are small unit tests that exercise parsing and the token generation helpers. Prefer running those crates' tests when making changes to parsing/generation.
+- **`trait_schema/`** — convenience re-export crate; consumers depend on this. Exports the `#[trait_schema]` macro and all types.
+- **`trait_schema_impl/`** — proc-macro crate containing the core `#[trait_schema]` attribute macro implementation. Parses `ItemTrait` and generates a `<TraitName>_schema()` function.
+- **`trait_schema_types/`** — shared types (`TraitSchema`, `FunctionSchema`, `FunctionArgSchema`, `FnArgAnnotations`, `FunctionAnnotations`, `GenericParamSchema`, `GenericParamAnnotations`). All implement `Into<proc_macro2::TokenStream>` for compile-time serialization.
+- **`trait_schema_test/`** — example binary demonstrating various trait annotations and output.
 
-- Important repository-specific patterns & conventions
-  - The proc-macro emits an extra function named `<TraitIdent>_schema` (note the macro uses `format_ident!("{}_schema", trait_ident)`). The generated function intentionally uses `#[allow(non_snake_case)]` because trait names are `CamelCase`.
-  - Types and values in schemas are represented as `String` values (e.g., argument types are stored as strings like `"Vec<String>"`). The macro uses `quote!` to stringify types and names — be careful when changing representation.
-  - Argument annotation parsing: function args can have `#[arg(...)]` attributes with keys currently supported:
-    - `collection_as_item` (boolean)
-    - `assert_len = <usize>`
-    See parsing logic in `trait_schema_impl/src/lib.rs::process_fn_arg_annotations` and the annotations struct in `trait_schema_types/src/lib.rs::FnArgAnnotations`.
-  - The macro currently skips the first input by `.skip(1)` when building argument lists (it intentionally skips the `self` parameter in trait methods). This is a deliberate implementation detail to be aware of.
+## Build & Test
 
-- Integration points & dependencies
-  - `trait_schema_impl` depends on `syn` and `quote` (see `trait_schema_impl/Cargo.toml`). Changes to parsing should be made with `syn` v2 API usage in mind.
-  - `trait_schema_types` provides `Into<proc_macro2::TokenStream>` impls so the macro can directly convert runtime structs into compile-time token streams.
-  - Consumers should depend on `trait_schema` (the re-export crate) to get the proc-macro and types: `pub use trait_schema_impl::trait_schema; pub use trait_schema_types::*;`.
+No single workspace root manifest; run cargo per-crate or use `--manifest-path`. From repo root:
+```powershell
+# Test the macro implementation
+cargo test --manifest-path trait_schema_impl/Cargo.toml
 
-- Examples to cite quickly
-  - `trait_schema_impl/src/lib.rs` — shows how `ItemTrait` is parsed, how function signatures are inspected, and how `#[arg(...)]` attributes are handled.
-  - `trait_schema_types/src/lib.rs` — shows the concrete shape of `TraitSchema`, `FunctionSchema`, `FunctionArgSchema`, and `FnArgAnnotations`, plus `Into<TokenStream>` implementations used by the macro.
-  - `trait_schema_test/src/main.rs` — multiple annotated trait examples you can copy to test new parsing or generation behavior.
+# Run examples
+cargo run --manifest-path trait_schema_test/Cargo.toml
+```
 
-- Quick guidance for code changes
-  - If you change how a schema is represented (e.g., change a field type from String -> structured type), update `trait_schema_types` first and then update `trait_schema_impl`'s code generation so `Into<TokenStream>` still produces valid Rust code at compile-time.
-  - When modifying attribute parsing, add focused unit tests in `trait_schema_impl` using `syn::parse_quote!` (the repo already follows this pattern).
-  - Prefer small, isolated changes; proc-macro changes can produce confusing compile errors in consumer crates — test changes by running `cargo test` in `trait_schema_impl` and then compiling `trait_schema_test`.
+## Key Patterns
 
-If any section is unclear or you'd like me to add CI snippets (GitHub Actions) or examples of common edits (e.g., adding a new annotation key), tell me which part to expand and I'll iterate.
+- **Generated function naming**: The macro creates `<TraitIdent>_schema()` using `format_ident!("{}_schema", trait_ident)` and wraps it with `#[allow(non_snake_case)]` since trait names are `CamelCase`.
+- **String-based representation**: All types/values stored as `String` (e.g., `"Vec<String>"`, `"i32"`). The macro uses `quote!` to stringify; changing to structured types requires updates to `Into<TokenStream>` impls.
+- **Argument annotations** (`#[arg(...)]`):
+  - `collection_as_item`: Marks a collection parameter as a single item
+  - `assert_len = <usize>`: Expected collection length  
+  - `cffi_type = "<type>"`: Custom FFI type representation (e.g., `"ptr<i32>"`, `"opt_ptr<f32>"`)
+  
+  Parsing in `trait_schema_impl/src/lib.rs::process_fn_arg_annotations()` → `FnArgAnnotations`
+- **Function annotations** (`#[func(...)]`):
+  - `cffi_impl_no_op`: Marks function as no-op for FFI codegen
+  
+  Parsing in `trait_schema_impl/src/lib.rs::process_fn_annotations()` → `FunctionAnnotations`
+- **Trait-level generic annotations** (e.g., `#[trait_schema(T = "ptr<void>")]`): Parsed into `GenericParamAnnotations` with `cffi_type` field.
+- **Self parameter skipping**: The macro uses `.skip(1)` when collecting arguments—intentionally excludes the implicit `&self` parameter.
+
+## Dependencies & Integration
+
+- **`syn` v2 & `quote`** (in `trait_schema_impl/Cargo.toml`): Use v2 API for parsing.
+- **`Into<TokenStream>` pattern**: Types in `trait_schema_types` convert to token streams for inline code generation. Update these impls whenever schema fields change.
+- **Consumer usage**: Depend on `trait_schema` re-export crate; use `#[trait_schema]` on trait definitions. Generated `<TraitName>_schema()` returns runtime metadata.
+
+## Code Change Workflow
+
+1. **Schema structure changes**: Update `trait_schema_types` struct definitions first, then update `Into<TokenStream>` impls to emit valid Rust code.
+2. **New attribute keys**: Add parsing in `trait_schema_impl/src/lib.rs`, add field to the corresponding type struct in `trait_schema_types`, add unit tests using `syn::parse_quote!`.
+3. **Testing**: Run `cargo test --manifest-path trait_schema_impl/Cargo.toml`, then compile `trait_schema_test/Cargo.toml` to verify end-to-end.
+
+## Examples
+
+- Argument annotations: `#[arg(collection_as_item, assert_len = 1)]` (see `trait_schema_test/src/main.rs::MyTrait`)
+- Generic trait annotation: `#[trait_schema(T = "ptr<void>")]` on `trait SpecializedTrait<T>`  
+- Function annotation: `#[func(cffi_impl_no_op)]` on a method
