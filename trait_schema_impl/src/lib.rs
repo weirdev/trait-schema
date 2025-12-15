@@ -7,6 +7,7 @@ use syn::{
 use trait_schema_types as trait_schema;
 
 #[proc_macro_attribute]
+/// Attribute macro that captures trait metadata and emits a schema function.
 pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemTrait);
     let trait_ident = input.ident.clone();
@@ -51,6 +52,7 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
     output.into()
 }
 
+/// Parse argument-level annotations (#[arg(...)]) and strip the attribute from the input.
 fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations {
     let mut info = trait_schema::FnArgAnnotations::new();
     if let syn::FnArg::Typed(pat_type) = arg {
