@@ -13,6 +13,7 @@ pub struct GenericParamAnnotations {
 }
 
 impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
+    /// Convert generic parameter annotations into tokens suitable for code generation.
     fn into(self) -> proc_macro2::TokenStream {
         let cffi_type = self
             .cffi_type
@@ -29,6 +30,7 @@ impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
 }
 
 impl GenericParamAnnotations {
+    /// Create empty generic parameter annotations with no CFFI type override.
     pub fn new() -> Self {
         GenericParamAnnotations { cffi_type: None }
     }
@@ -41,6 +43,7 @@ pub struct GenericParamSchema {
 }
 
 impl Into<proc_macro2::TokenStream> for GenericParamSchema {
+    /// Convert a generic parameter schema into tokens for embedding in generated code.
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
         let annotations_tokens = if let Some(annotations) = self.annotations {
@@ -68,6 +71,7 @@ pub struct TraitSchema {
 }
 
 impl Into<proc_macro2::TokenStream> for TraitSchema {
+    /// Convert a trait schema into tokens that instantiate the schema at compile time.
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
         let field_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
@@ -124,6 +128,7 @@ pub struct FunctionSchema {
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionSchema {
+    /// Convert a function schema into tokens for inclusion in a trait schema.
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
         let args_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
@@ -178,6 +183,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
 }
 
 impl Display for FunctionSchema {
+    /// Render the function signature (and optional body) as a human-readable string.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(extern_layout) = &self.extern_layout {
             write!(f, "extern \"{}\" ", extern_layout)?;
@@ -212,6 +218,7 @@ pub struct FunctionAnnotations {
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionAnnotations {
+    /// Convert function-level annotations into tokens for generated code.
     fn into(self) -> proc_macro2::TokenStream {
         let cffi_impl_no_op = self.cffi_impl_no_op;
         quote! {
@@ -223,6 +230,7 @@ impl Into<proc_macro2::TokenStream> for FunctionAnnotations {
 }
 
 impl FunctionAnnotations {
+    /// Construct function annotations with defaults (no CFFI flags set).
     pub fn new() -> Self {
         FunctionAnnotations { cffi_impl_no_op: false }
     }
@@ -236,6 +244,7 @@ pub struct FunctionArgSchema {
 }
 
 impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
+    /// Convert a function argument schema into tokens used by the procedural macro.
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
         let ty_lit = self.ty.as_ref().map(|s| proc_macro2::Literal::string(s));
@@ -272,6 +281,7 @@ pub struct FnArgAnnotations {
 }
 
 impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
+    /// Convert argument annotations into tokens that can be embedded in generated code.
     fn into(self) -> proc_macro2::TokenStream {
         let collection_as_item = self.collection_as_item;
         let cffi_type = self
@@ -295,6 +305,7 @@ impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
 }
 
 impl FnArgAnnotations {
+    /// Create empty argument annotations with defaults for collection and assertion flags.
     pub fn new() -> Self {
         FnArgAnnotations {
             collection_as_item: false,
