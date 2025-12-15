@@ -64,6 +64,7 @@ pub struct TraitSchema {
     pub name: String,
     pub functions: Vec<FunctionSchema>,
     pub generics: Vec<GenericParamSchema>,
+    pub supertraits: Vec<String>,
 }
 
 impl Into<proc_macro2::TokenStream> for TraitSchema {
@@ -81,6 +82,15 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
             .map(|g| Into::<proc_macro2::TokenStream>::into(g))
             .collect::<Punctuated<_, Comma>>();
 
+        let supertraits_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
+            .supertraits
+            .into_iter()
+            .map(|s| {
+                let s_lit = proc_macro2::Literal::string(&s);
+                quote! { ::std::string::String::from(#s_lit) }
+            })
+            .collect::<Punctuated<_, Comma>>();
+
         quote! {
             {
                 let functions = ::std::vec![
@@ -89,10 +99,14 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
                 let generics = ::std::vec![
                     #generics_tokens
                 ];
+                let supertraits = ::std::vec![
+                    #supertraits_tokens
+                ];
                     ::trait_schema::TraitSchema {
                         name: ::std::string::String::from(#name_lit),
                         functions: functions,
                         generics: generics,
+                        supertraits: supertraits,
                     }
             }
         }
@@ -456,6 +470,7 @@ mod tests {
             name: "MyTrait".to_string(),
             functions,
             generics: vec![],
+            supertraits: vec![],
         };
 
         assert_eq!(schema.name, "MyTrait");
@@ -463,6 +478,7 @@ mod tests {
         assert_eq!(schema.functions[0].name, "method1");
         assert_eq!(schema.functions[1].name, "method2");
         assert_eq!(schema.generics.len(), 0);
+        assert_eq!(schema.supertraits.len(), 0);
     }
 
     #[test]
@@ -547,10 +563,30 @@ mod tests {
             name: "SpecializedTrait".to_string(),
             functions: vec![],
             generics,
+            supertraits: vec![],
         };
 
         assert_eq!(schema.name, "SpecializedTrait");
         assert_eq!(schema.generics.len(), 1);
         assert_eq!(schema.generics[0].name, "T");
+        assert_eq!(schema.supertraits.len(), 0);
+    }
+
+    #[test]
+    fn test_trait_schema_with_supertraits() {
+        let schema = TraitSchema {
+            name: "MyTraitWithBase".to_string(),
+            functions: vec![],
+            generics: vec![],
+            supertraits: vec![
+                "BaseTrait".to_string(),
+                "OtherTrait".to_string(),
+            ],
+        };
+
+        assert_eq!(schema.name, "MyTraitWithBase");
+        assert_eq!(schema.supertraits.len(), 2);
+        assert_eq!(schema.supertraits[0], "BaseTrait");
+        assert_eq!(schema.supertraits[1], "OtherTrait");
     }
 }

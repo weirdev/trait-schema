@@ -22,11 +22,14 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let trait_functions = extract_trait_functions(&mut input.items);
 
+    let trait_supertraits = extract_supertraits(&input.supertraits);
+
     let trait_name_string = trait_ident.to_string();
     let trait_schema = trait_schema::TraitSchema {
         name: trait_name_string,
         functions: trait_functions,
         generics: trait_generics,
+        supertraits: trait_supertraits,
     };
 
     let trait_tokens: proc_macro2::TokenStream = trait_schema.into();
@@ -230,6 +233,20 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
     }
 
     trait_functions
+}
+
+/// Extract supertraits from the trait bounds
+fn extract_supertraits(supertraits: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>) -> Vec<String> {
+    supertraits
+        .iter()
+        .filter_map(|bound| {
+            if let syn::TypeParamBound::Trait(trait_bound) = bound {
+                Some(format!("{}", quote! { #trait_bound }))
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -436,5 +453,76 @@ mod tests {
         // The #[func(...)] attribute should be removed from the function
         let has_func_attr = func.attrs.iter().any(|a| a.path().is_ident("func"));
         assert!(!has_func_attr);
+    }
+
+    #[test]
+    fn test_extract_supertraits_empty() {
+        let trait_def: syn::ItemTrait = parse_quote!(trait MyTrait {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_extract_supertraits_single() {
+        let trait_def: syn::ItemTrait = parse_quote!(trait MyTrait: Clone {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], "Clone");
+    }
+
+    #[test]
+    fn test_extract_supertraits_multiple() {
+        let trait_def: syn::ItemTrait =
+            parse_quote!(trait MyTrait: Clone + Debug + Send {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], "Clone");
+        assert_eq!(result[1], "Debug");
+        assert_eq!(result[2], "Send");
+    }
+
+    #[test]
+    fn test_extract_supertraits_with_path() {
+        let trait_def: syn::ItemTrait =
+            parse_quote!(trait MyTrait: std::fmt::Debug {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], "std :: fmt :: Debug");
+    }
+
+    #[test]
+    fn test_extract_supertraits_generic_trait() {
+        let trait_def: syn::ItemTrait =
+            parse_quote!(trait MyTrait: IntoIterator<Item = String> {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert_eq!(result.len(), 1);
+        // The output includes the full trait with generic parameters
+        assert!(result[0].contains("IntoIterator"));
+        assert!(result[0].contains("Item"));
+        assert!(result[0].contains("String"));
+    }
+
+    #[test]
+    fn test_extract_supertraits_mixed_lifetimes_and_traits() {
+        let trait_def: syn::ItemTrait =
+            parse_quote!(trait MyTrait: 'static + Clone + Sync {});
+        let result = extract_supertraits(&trait_def.supertraits);
+        // 'static is a lifetime bound, not a trait, so it should be filtered out
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], "Clone");
+        assert_eq!(result[1], "Sync");
+    }
+
+    #[test]
+    fn test_extract_supertraits_complex() {
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: Send + Sync + std::fmt::Debug + Clone {}
+        );
+        let result = extract_supertraits(&trait_def.supertraits);
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], "Send");
+        assert_eq!(result[1], "Sync");
+        assert_eq!(result[2], "std :: fmt :: Debug");
+        assert_eq!(result[3], "Clone");
     }
 }

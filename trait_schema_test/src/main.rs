@@ -38,6 +38,11 @@ trait SpecializedTrait<T> {
     fn specialized_method(&self, value: T) -> String;
 }
 
+#[trait_schema(T = "ptr<void>")]
+trait SpecializedSubTrait<T>: SimpleTrait {
+    fn specialized_method(&self, value: T) -> String;
+}
+
 fn main() {
     println!("=== MyTrait Schema ===");
     let my_trait_schema = MyTrait_schema();
@@ -94,4 +99,8 @@ fn main() {
                 .and_then(|a| a.cffi_type.clone())
         );
     }
+
+    println!("\n=== SpecializedSubTrait Schema ===");
+    let specialized_trait_schema = SpecializedSubTrait_schema();
+    println!("{:#?}", specialized_trait_schema);
 }

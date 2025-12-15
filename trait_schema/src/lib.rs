@@ -13,6 +13,7 @@ mod tests {
             name: "MyTrait".to_string(),
             functions: vec![],
             generics: vec![],
+            supertraits: vec![],
         };
         assert_eq!(schema.name, "MyTrait");
         assert!(schema.functions.is_empty());
@@ -25,6 +26,7 @@ mod tests {
             name: "MyTrait".to_string(),
             functions: vec![],
             generics: vec![],
+            supertraits: vec![],
         };
         let tokens: TokenStream = schema.into();
         let s = tokens.to_string();
