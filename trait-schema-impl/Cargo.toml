@@ -1,5 +1,5 @@
 [package]
-name = "trait_schema_impl"
+name = "trait-schema-impl"
 version.workspace = true
 edition.workspace = true
 
@@ -7,7 +7,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-trait_schema_types = { path = "../trait_schema_types" }
+trait-schema-types = { path = "../trait-schema-types" }
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"

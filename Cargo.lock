@@ -22,9 +22,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.110"
+version = "2.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99801b5bd34ede4cf3fc688c5919368fea4e4814a4664359503e6015b280aea"
+checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -32,33 +32,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "trait_schema"
+name = "trait-schema"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
- "trait_schema_impl",
- "trait_schema_types",
+ "trait-schema-impl",
+ "trait-schema-types",
 ]
 
 [[package]]
-name = "trait_schema_impl"
+name = "trait-schema-impl"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "trait_schema_types",
+ "trait-schema-types",
 ]
 
 [[package]]
-name = "trait_schema_test"
+name = "trait-schema-test"
 version = "0.1.0"
 dependencies = [
- "trait_schema",
+ "trait-schema",
 ]
 
 [[package]]
-name = "trait_schema_types"
+name = "trait-schema-types"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

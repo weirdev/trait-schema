@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "trait_schema",
-    "trait_schema_impl",
-    "trait_schema_types",
-    "trait_schema_test",
+    "trait-schema",
+    "trait-schema-impl",
+    "trait-schema-types",
+    "trait-schema-test",
 ]
 resolver = "2"
 

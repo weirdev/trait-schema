@@ -1,0 +1,11 @@
+[package]
+name = "trait-schema"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+trait-schema-impl = { path = "../trait-schema-impl" }
+trait-schema-types = { path = "../trait-schema-types" }
+
+[dev-dependencies]
+proc-macro2 = "1"
