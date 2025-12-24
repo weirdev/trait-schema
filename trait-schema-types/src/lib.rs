@@ -236,6 +236,52 @@ impl FunctionAnnotations {
     }
 }
 
+/// Schema for a parsed type, including any generic arguments.
+#[derive(Debug)]
+pub struct TypeSchema {
+    pub ty: String,
+    pub generic_ty_args: Vec<TypeSchema>,
+}
+
+impl Into<proc_macro2::TokenStream> for TypeSchema {
+    /// Convert a type schema into tokens suitable for embedding in generated code.
+    fn into(self) -> proc_macro2::TokenStream {
+        let ty_lit = proc_macro2::Literal::string(&self.ty);
+        let generic_ty_args_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
+            .generic_ty_args
+            .into_iter()
+            .map(|arg| Into::<proc_macro2::TokenStream>::into(arg))
+            .collect::<Punctuated<_, Comma>>();
+
+        quote! {
+            ::trait_schema::TypeSchema {
+                ty: ::std::string::String::from(#ty_lit),
+                generic_ty_args: ::std::vec![
+                    #generic_ty_args_tokens
+                ],
+            }
+        }
+    }
+}
+
+impl Display for TypeSchema {
+    /// Render the type as a human-readable string.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.ty)?;
+        if !self.generic_ty_args.is_empty() {
+            write!(f, "<")?;
+            for (i, arg) in self.generic_ty_args.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", arg)?;
+            }
+            write!(f, ">")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct FunctionArgSchema {
     pub name: String,
