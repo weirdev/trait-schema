@@ -67,7 +67,7 @@ pub struct TraitSchema {
     pub name: String,
     pub functions: Vec<FunctionSchema>,
     pub generics: Vec<GenericParamSchema>,
-    pub supertraits: Vec<String>,
+    pub supertraits: Vec<TypeSchema>,
 }
 
 impl Into<proc_macro2::TokenStream> for TraitSchema {
@@ -89,10 +89,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
         let supertraits_tokens: Punctuated<proc_macro2::TokenStream, Comma> = self
             .supertraits
             .into_iter()
-            .map(|s| {
-                let s_lit = proc_macro2::Literal::string(&s);
-                quote! { ::std::string::String::from(#s_lit) }
-            })
+            .map(|s| Into::<proc_macro2::TokenStream>::into(s))
             .collect::<Punctuated<_, Comma>>();
 
         quote! {
@@ -121,7 +118,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
 pub struct FunctionSchema {
     pub name: String,
     pub args: Vec<FunctionArgSchema>,
-    pub return_type: String,
+    pub return_type: TypeSchema,
     pub body: Option<String>,
     pub extern_layout: Option<String>,
     pub annotations: Option<FunctionAnnotations>,
@@ -136,7 +133,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
             .into_iter()
             .map(|arg| Into::<proc_macro2::TokenStream>::into(arg))
             .collect::<Punctuated<_, Comma>>();
-        let return_type_lit = proc_macro2::Literal::string(&self.return_type);
+        let return_type_tokens: proc_macro2::TokenStream = self.return_type.into();
 
         let body = if let Some(body) = self.body {
             let body_lit = proc_macro2::Literal::string(&body);
@@ -173,7 +170,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
                 args: ::std::vec![
                     #args_tokens
                 ],
-                return_type: ::std::string::String::from(#return_type_lit),
+                return_type: #return_type_tokens,
                 body: #body,
                 extern_layout: #extern_layout,
                 annotations: #annotations_tokens,
@@ -232,7 +229,9 @@ impl Into<proc_macro2::TokenStream> for FunctionAnnotations {
 impl FunctionAnnotations {
     /// Construct function annotations with defaults (no CFFI flags set).
     pub fn new() -> Self {
-        FunctionAnnotations { cffi_impl_no_op: false }
+        FunctionAnnotations {
+            cffi_impl_no_op: false,
+        }
     }
 }
 
@@ -285,7 +284,7 @@ impl Display for TypeSchema {
 #[derive(Debug)]
 pub struct FunctionArgSchema {
     pub name: String,
-    pub ty: Option<String>,
+    pub ty: Option<TypeSchema>,
     pub annotations: Option<FnArgAnnotations>,
 }
 
@@ -293,7 +292,7 @@ impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
     /// Convert a function argument schema into tokens used by the procedural macro.
     fn into(self) -> proc_macro2::TokenStream {
         let name_lit = proc_macro2::Literal::string(&self.name);
-        let ty_lit = self.ty.as_ref().map(|s| proc_macro2::Literal::string(s));
+        let ty_tokens = self.ty.map(|ty| Into::<proc_macro2::TokenStream>::into(ty));
         let annotations_tokens = if let Some(annotations) = self.annotations {
             let annotations_ts: proc_macro2::TokenStream = annotations.into();
             quote! { Some(#annotations_ts) }
@@ -301,8 +300,8 @@ impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
             quote! { None }
         };
 
-        let ty_tokens: proc_macro2::TokenStream = if let Some(ty_lit) = ty_lit {
-            quote! { ty: ::std::option::Option::Some(::std::string::String::from(#ty_lit)), }
+        let ty_tokens: proc_macro2::TokenStream = if let Some(ty_tokens) = ty_tokens {
+            quote! { ty: ::std::option::Option::Some(#ty_tokens), }
         } else {
             quote! { ty: ::std::option::Option::None, }
         };
@@ -388,7 +387,10 @@ mod tests {
     fn test_function_arg_schema_creation() {
         let arg = FunctionArgSchema {
             name: "test_arg".to_string(),
-            ty: Some("String".to_string()),
+            ty: Some(TypeSchema {
+                ty: "String".to_string(),
+                generic_ty_args: vec![],
+            }),
             annotations: Some(FnArgAnnotations {
                 collection_as_item: false,
                 assert_len: Some(10),
@@ -397,7 +399,7 @@ mod tests {
         };
 
         assert_eq!(arg.name, "test_arg");
-        assert_eq!(arg.ty, Some("String".to_string()));
+        assert_eq!(arg.ty.as_ref().unwrap().ty, "String");
         assert!(arg.annotations.is_some());
         if let Some(ann) = arg.annotations {
             assert_eq!(ann.assert_len, Some(10));
@@ -408,12 +410,15 @@ mod tests {
     fn test_function_arg_schema_without_annotations() {
         let arg = FunctionArgSchema {
             name: "simple_arg".to_string(),
-            ty: Some("i32".to_string()),
+            ty: Some(TypeSchema {
+                ty: "i32".to_string(),
+                generic_ty_args: vec![],
+            }),
             annotations: None,
         };
 
         assert_eq!(arg.name, "simple_arg");
-        assert_eq!(arg.ty, Some("i32".to_string()));
+        assert_eq!(arg.ty.as_ref().unwrap().ty, "i32");
         assert!(arg.annotations.is_none());
     }
 
@@ -422,12 +427,18 @@ mod tests {
         let args = vec![
             FunctionArgSchema {
                 name: "arg1".to_string(),
-                ty: Some("String".to_string()),
+                ty: Some(TypeSchema {
+                    ty: "String".to_string(),
+                    generic_ty_args: vec![],
+                }),
                 annotations: None,
             },
             FunctionArgSchema {
                 name: "arg2".to_string(),
-                ty: Some("i32".to_string()),
+                ty: Some(TypeSchema {
+                    ty: "i32".to_string(),
+                    generic_ty_args: vec![],
+                }),
                 annotations: None,
             },
         ];
@@ -435,7 +446,10 @@ mod tests {
         let func = FunctionSchema {
             name: "test_fn".to_string(),
             args,
-            return_type: "bool".to_string(),
+            return_type: TypeSchema {
+                ty: "bool".to_string(),
+                generic_ty_args: vec![],
+            },
             body: None,
             extern_layout: None,
             annotations: None,
@@ -443,7 +457,7 @@ mod tests {
 
         assert_eq!(func.name, "test_fn");
         assert_eq!(func.args.len(), 2);
-        assert_eq!(func.return_type, "bool");
+        assert_eq!(func.return_type.ty, "bool");
         assert!(func.body.is_none());
     }
 
@@ -452,12 +466,18 @@ mod tests {
         let args = vec![
             FunctionArgSchema {
                 name: "x".to_string(),
-                ty: Some("i32".to_string()),
+                ty: Some(TypeSchema {
+                    ty: "i32".to_string(),
+                    generic_ty_args: vec![],
+                }),
                 annotations: None,
             },
             FunctionArgSchema {
                 name: "y".to_string(),
-                ty: Some("String".to_string()),
+                ty: Some(TypeSchema {
+                    ty: "String".to_string(),
+                    generic_ty_args: vec![],
+                }),
                 annotations: None,
             },
         ];
@@ -465,7 +485,10 @@ mod tests {
         let func = FunctionSchema {
             name: "my_function".to_string(),
             args,
-            return_type: "bool".to_string(),
+            return_type: TypeSchema {
+                ty: "bool".to_string(),
+                generic_ty_args: vec![],
+            },
             body: None,
             extern_layout: None,
             annotations: None,
@@ -485,7 +508,10 @@ mod tests {
         let func = FunctionSchema {
             name: "with_body".to_string(),
             args,
-            return_type: "String".to_string(),
+            return_type: TypeSchema {
+                ty: "String".to_string(),
+                generic_ty_args: vec![],
+            },
             body: Some("return \"hello\".to_string();".to_string()),
             extern_layout: None,
             annotations: None,
@@ -504,7 +530,10 @@ mod tests {
             FunctionSchema {
                 name: "method1".to_string(),
                 args: vec![],
-                return_type: "()".to_string(),
+                return_type: TypeSchema {
+                    ty: "()".to_string(),
+                    generic_ty_args: vec![],
+                },
                 body: None,
                 extern_layout: None,
                 annotations: None,
@@ -513,10 +542,16 @@ mod tests {
                 name: "method2".to_string(),
                 args: vec![FunctionArgSchema {
                     name: "arg".to_string(),
-                    ty: Some("String".to_string()),
+                    ty: Some(TypeSchema {
+                        ty: "String".to_string(),
+                        generic_ty_args: vec![],
+                    }),
                     annotations: None,
                 }],
-                return_type: "String".to_string(),
+                return_type: TypeSchema {
+                    ty: "String".to_string(),
+                    generic_ty_args: vec![],
+                },
                 body: None,
                 extern_layout: None,
                 annotations: None,
@@ -543,7 +578,10 @@ mod tests {
         let func = FunctionSchema {
             name: "no_args".to_string(),
             args: vec![],
-            return_type: "()".to_string(),
+            return_type: TypeSchema {
+                ty: "()".to_string(),
+                generic_ty_args: vec![],
+            },
             body: None,
             extern_layout: None,
             annotations: None,
@@ -636,14 +674,20 @@ mod tests {
             functions: vec![],
             generics: vec![],
             supertraits: vec![
-                "BaseTrait".to_string(),
-                "OtherTrait".to_string(),
+                TypeSchema {
+                    ty: "BaseTrait".to_string(),
+                    generic_ty_args: vec![],
+                },
+                TypeSchema {
+                    ty: "OtherTrait".to_string(),
+                    generic_ty_args: vec![],
+                },
             ],
         };
 
         assert_eq!(schema.name, "MyTraitWithBase");
         assert_eq!(schema.supertraits.len(), 2);
-        assert_eq!(schema.supertraits[0], "BaseTrait");
-        assert_eq!(schema.supertraits[1], "OtherTrait");
+        assert_eq!(schema.supertraits[0].ty, "BaseTrait");
+        assert_eq!(schema.supertraits[1].ty, "OtherTrait");
     }
 }
