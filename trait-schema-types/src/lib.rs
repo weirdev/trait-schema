@@ -242,6 +242,15 @@ pub struct TypeSchema {
     pub generic_ty_args: Vec<TypeSchema>,
 }
 
+impl TypeSchema {
+    pub fn new_simple(ty: String) -> Self {
+        TypeSchema {
+            ty,
+            generic_ty_args: vec![],
+        }
+    }
+}
+
 impl Into<proc_macro2::TokenStream> for TypeSchema {
     /// Convert a type schema into tokens suitable for embedding in generated code.
     fn into(self) -> proc_macro2::TokenStream {
