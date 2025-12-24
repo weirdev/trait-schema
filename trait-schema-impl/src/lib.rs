@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, FnArg, GenericParam, ItemTrait, LitInt, Receiver, ReturnType, TraitItem,
+    Type,
 };
 
 use trait_schema_types as trait_schema;
@@ -197,7 +198,7 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
                         };
 
                         let arg_ty = &*pat_type.ty;
-                        let arg_ty = format!("{}", quote! { #arg_ty });
+                        let arg_ty = type_schema_from_type(arg_ty);
 
                         let annotations = process_fn_arg_annotations(arg);
 
@@ -219,8 +220,11 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
                 .collect();
 
             let return_type = match &sig.output {
-                ReturnType::Default => "()".to_string(),
-                ReturnType::Type(_, ty) => format!("{}", quote! { #ty }),
+                ReturnType::Default => trait_schema::TypeSchema {
+                    ty: "()".to_string(),
+                    generic_ty_args: vec![],
+                },
+                ReturnType::Type(_, ty) => type_schema_from_type(ty),
             };
 
             trait_functions.push(trait_schema::FunctionSchema {
@@ -238,17 +242,70 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
 }
 
 /// Extract supertraits from the trait bounds
-fn extract_supertraits(supertraits: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>) -> Vec<String> {
+fn extract_supertraits(
+    supertraits: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>,
+) -> Vec<trait_schema::TypeSchema> {
     supertraits
         .iter()
         .filter_map(|bound| {
             if let syn::TypeParamBound::Trait(trait_bound) = bound {
-                Some(format!("{}", quote! { #trait_bound }))
+                Some(type_schema_from_path(&trait_bound.path))
             } else {
                 None
             }
         })
         .collect()
+}
+
+fn type_schema_from_type(ty: &Type) -> trait_schema::TypeSchema {
+    match ty {
+        Type::Path(type_path) => type_schema_from_path(&type_path.path),
+        _ => trait_schema::TypeSchema {
+            ty: format!("{}", quote! { #ty }),
+            generic_ty_args: vec![],
+        },
+    }
+}
+
+fn type_schema_from_path(path: &syn::Path) -> trait_schema::TypeSchema {
+    let mut ty = String::new();
+    if path.leading_colon.is_some() {
+        ty.push_str("::");
+    }
+    ty.push_str(
+        &path
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::"),
+    );
+
+    let generic_ty_args = path
+        .segments
+        .last()
+        .and_then(|segment| match &segment.arguments {
+            syn::PathArguments::AngleBracketed(args) => Some(args),
+            _ => None,
+        })
+        .map(|args| {
+            args.args
+                .iter()
+                .map(|arg| match arg {
+                    syn::GenericArgument::Type(ty) => type_schema_from_type(ty),
+                    _ => trait_schema::TypeSchema {
+                        ty: format!("{}", quote! { #arg }),
+                        generic_ty_args: vec![],
+                    },
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    trait_schema::TypeSchema {
+        ty,
+        generic_ty_args,
+    }
 }
 
 #[cfg(test)]
@@ -428,15 +485,17 @@ mod tests {
         assert_eq!(result[0].name, "foo");
         assert_eq!(result[0].args[0].name, "self");
         assert_eq!(result[0].args[1].name, "x");
-        assert_eq!(result[0].return_type, "i32");
+        assert_eq!(result[0].return_type.ty, "i32");
         assert_eq!(result[1].name, "bar");
         assert_eq!(result[1].args[0].name, "self");
-        assert_eq!(result[1].return_type, "()".to_string());
+        assert_eq!(result[1].return_type.ty, "()");
     }
 
     #[test]
     fn test_process_fn_annotations_no_attr() {
-        let mut func: syn::TraitItemFn = parse_quote!(fn foo(&self););
+        let mut func: syn::TraitItemFn = parse_quote!(
+            fn foo(&self);
+        );
         let annotations = process_fn_annotations(&mut func);
 
         assert!(!annotations.cffi_impl_no_op);
@@ -447,7 +506,10 @@ mod tests {
 
     #[test]
     fn test_process_fn_annotations_cffi_impl_no_op() {
-        let mut func: syn::TraitItemFn = parse_quote!(#[func(cffi_impl_no_op)] fn foo(&self););
+        let mut func: syn::TraitItemFn = parse_quote!(
+            #[func(cffi_impl_no_op)]
+            fn foo(&self);
+        );
         let annotations = process_fn_annotations(&mut func);
 
         assert!(annotations.cffi_impl_no_op);
@@ -459,60 +521,67 @@ mod tests {
 
     #[test]
     fn test_extract_supertraits_empty() {
-        let trait_def: syn::ItemTrait = parse_quote!(trait MyTrait {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         assert!(result.is_empty());
     }
 
     #[test]
     fn test_extract_supertraits_single() {
-        let trait_def: syn::ItemTrait = parse_quote!(trait MyTrait: Clone {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: Clone {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0], "Clone");
+        assert_eq!(result[0].ty, "Clone");
     }
 
     #[test]
     fn test_extract_supertraits_multiple() {
-        let trait_def: syn::ItemTrait =
-            parse_quote!(trait MyTrait: Clone + Debug + Send {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: Clone + Debug + Send {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0], "Clone");
-        assert_eq!(result[1], "Debug");
-        assert_eq!(result[2], "Send");
+        assert_eq!(result[0].ty, "Clone");
+        assert_eq!(result[1].ty, "Debug");
+        assert_eq!(result[2].ty, "Send");
     }
 
     #[test]
     fn test_extract_supertraits_with_path() {
-        let trait_def: syn::ItemTrait =
-            parse_quote!(trait MyTrait: std::fmt::Debug {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: std::fmt::Debug {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0], "std :: fmt :: Debug");
+        assert_eq!(result[0].ty, "std::fmt::Debug");
     }
 
     #[test]
     fn test_extract_supertraits_generic_trait() {
-        let trait_def: syn::ItemTrait =
-            parse_quote!(trait MyTrait: IntoIterator<Item = String> {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: IntoIterator<Item = String> {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         assert_eq!(result.len(), 1);
-        // The output includes the full trait with generic parameters
-        assert!(result[0].contains("IntoIterator"));
-        assert!(result[0].contains("Item"));
-        assert!(result[0].contains("String"));
+        assert_eq!(result[0].ty, "IntoIterator");
+        assert_eq!(result[0].generic_ty_args.len(), 1);
+        assert_eq!(result[0].generic_ty_args[0].ty, "Item = String");
     }
 
     #[test]
     fn test_extract_supertraits_mixed_lifetimes_and_traits() {
-        let trait_def: syn::ItemTrait =
-            parse_quote!(trait MyTrait: 'static + Clone + Sync {});
+        let trait_def: syn::ItemTrait = parse_quote!(
+            trait MyTrait: 'static + Clone + Sync {}
+        );
         let result = extract_supertraits(&trait_def.supertraits);
         // 'static is a lifetime bound, not a trait, so it should be filtered out
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0], "Clone");
-        assert_eq!(result[1], "Sync");
+        assert_eq!(result[0].ty, "Clone");
+        assert_eq!(result[1].ty, "Sync");
     }
 
     #[test]
@@ -522,9 +591,9 @@ mod tests {
         );
         let result = extract_supertraits(&trait_def.supertraits);
         assert_eq!(result.len(), 4);
-        assert_eq!(result[0], "Send");
-        assert_eq!(result[1], "Sync");
-        assert_eq!(result[2], "std :: fmt :: Debug");
-        assert_eq!(result[3], "Clone");
+        assert_eq!(result[0].ty, "Send");
+        assert_eq!(result[1].ty, "Sync");
+        assert_eq!(result[2].ty, "std::fmt::Debug");
+        assert_eq!(result[3].ty, "Clone");
     }
 }
