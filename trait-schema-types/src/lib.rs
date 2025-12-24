@@ -7,7 +7,7 @@ use syn::{punctuated::Punctuated, token::Comma};
 #[allow(unused_imports)]
 use crate as trait_schema;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericParamAnnotations {
     pub cffi_type: Option<String>,
 }
@@ -36,7 +36,7 @@ impl GenericParamAnnotations {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericParamSchema {
     pub name: String,
     pub annotations: Option<GenericParamAnnotations>,
@@ -62,7 +62,7 @@ impl Into<proc_macro2::TokenStream> for GenericParamSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TraitSchema {
     pub name: String,
     pub functions: Vec<FunctionSchema>,
@@ -114,7 +114,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionSchema {
     pub name: String,
     pub args: Vec<FunctionArgSchema>,
@@ -209,7 +209,7 @@ impl Display for FunctionSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionAnnotations {
     pub cffi_impl_no_op: bool,
 }
@@ -236,7 +236,7 @@ impl FunctionAnnotations {
 }
 
 /// Schema for a parsed type, including any generic arguments.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeSchema {
     pub ty: String,
     pub generic_ty_args: Vec<TypeSchema>,
@@ -281,7 +281,7 @@ impl Display for TypeSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionArgSchema {
     pub name: String,
     pub ty: Option<TypeSchema>,
@@ -316,7 +316,7 @@ impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnArgAnnotations {
     // Examples of supported args:
     //   #[arg(collection_as_item, assert_len = 1)]
