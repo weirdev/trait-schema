@@ -1,4 +1,4 @@
-pub use trait_schema_impl::trait_schema;
+pub use rs_schema_derive_impl::trait_schema;
 pub use rs_schema::*;
 
 #[cfg(test)]
