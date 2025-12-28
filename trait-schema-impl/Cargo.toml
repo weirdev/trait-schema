@@ -7,7 +7,7 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-trait-schema-types = { path = "../trait-schema-types" }
+rs-schema = { path = "../rs-schema" }
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
