@@ -5,7 +5,7 @@ use syn::{punctuated::Punctuated, token::Comma};
 
 // Needed so macro type references work correctly
 #[allow(unused_imports)]
-use crate as trait_schema;
+use crate as rs_schema;
 
 #[derive(Debug, Clone)]
 pub struct GenericParamAnnotations {
