@@ -2,7 +2,7 @@
 members = [
     "trait-schema",
     "trait-schema-impl",
-    "trait-schema-types",
+    "rs-schema",
     "trait-schema-test",
 ]
 resolver = "2"

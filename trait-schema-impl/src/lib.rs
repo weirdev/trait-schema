@@ -5,7 +5,7 @@ use syn::{
     Type,
 };
 
-use trait_schema_types as trait_schema;
+use rs_schema as trait_schema;
 
 #[proc_macro_attribute]
 /// Attribute macro that captures trait metadata and emits a schema function.

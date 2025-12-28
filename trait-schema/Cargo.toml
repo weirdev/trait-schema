@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 trait-schema-impl = { path = "../trait-schema-impl" }
-trait-schema-types = { path = "../trait-schema-types" }
+rs-schema = { path = "../rs-schema" }
 
 [dev-dependencies]
 proc-macro2 = "1"

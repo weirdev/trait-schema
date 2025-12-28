@@ -1,5 +1,5 @@
 pub use trait_schema_impl::trait_schema;
-pub use trait_schema_types::*;
+pub use rs_schema::*;
 
 #[cfg(test)]
 mod tests {

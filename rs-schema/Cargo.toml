@@ -1,5 +1,5 @@
 [package]
-name = "trait-schema-types"
+name = "rs-schema"
 version.workspace = true
 edition.workspace = true
 
