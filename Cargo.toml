@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "trait-schema",
+    "rs-schema-derive",
     "rs-schema-derive-impl",
     "rs-schema",
     "trait-schema-test",

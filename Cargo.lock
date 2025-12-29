@@ -30,6 +30,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rs-schema-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "rs-schema",
+ "rs-schema-derive-impl",
+]
+
+[[package]]
 name = "rs-schema-derive-impl"
 version = "0.1.0"
 dependencies = [
@@ -51,19 +60,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "trait-schema"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "rs-schema",
- "rs-schema-derive-impl",
-]
-
-[[package]]
 name = "trait-schema-test"
 version = "0.1.0"
 dependencies = [
- "trait-schema",
+ "rs-schema-derive",
 ]
 
 [[package]]

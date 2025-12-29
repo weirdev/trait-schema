@@ -4,4 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-trait-schema = { path = "../trait-schema" }
+rs-schema-derive = { path = "../rs-schema-derive" }
