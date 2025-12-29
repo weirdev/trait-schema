@@ -10,8 +10,8 @@ keywords = ["rust", "schema", "codegen", "types", "procedural-macros", "macros"]
 categories = ["rust-patterns"]
 
 [dependencies]
-rs-schema-derive-impl = { path = "../rs-schema-derive-impl" }
-rs-schema = { path = "../rs-schema" }
+rs-schema-derive-impl = { path = "../rs-schema-derive-impl", version = "0.1.0" }
+rs-schema = { path = "../rs-schema", version = "1.0.0" }
 
 [dev-dependencies]
 proc-macro2 = "1"

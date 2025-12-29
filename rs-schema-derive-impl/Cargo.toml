@@ -13,7 +13,7 @@ categories = ["rust-patterns"]
 proc-macro = true
 
 [dependencies]
-rs-schema = { path = "../rs-schema" }
+rs-schema = { path = "../rs-schema", version = "1.0.0" }
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"

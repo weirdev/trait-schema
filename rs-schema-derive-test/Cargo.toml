@@ -10,4 +10,4 @@ keywords = ["rust", "schema", "codegen", "types", "tests"]
 categories = ["rust-patterns"]
 
 [dependencies]
-rs-schema-derive = { path = "../rs-schema-derive" }
+rs-schema-derive = { path = "../rs-schema-derive", version = "0.1.0" }
