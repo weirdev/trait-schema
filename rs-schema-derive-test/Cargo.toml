@@ -1,5 +1,5 @@
 [package]
-name = "trait-schema-test"
+name = "rs-schema-derive-test"
 version.workspace = true
 edition.workspace = true
 
