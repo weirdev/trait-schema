@@ -2,10 +2,8 @@ use std::fmt::Display;
 
 use quote::quote;
 use syn::{punctuated::Punctuated, token::Comma};
-
-// Needed so macro type references work correctly
-#[allow(unused_imports)]
-use crate as rs_schema;
+// #[allow(unused_imports)]
+// use crate as rs_schema;
 
 #[derive(Debug, Clone)]
 pub struct GenericParamAnnotations {
@@ -22,7 +20,7 @@ impl Into<proc_macro2::TokenStream> for GenericParamAnnotations {
             .map(|lit| quote! { Some(::std::string::String::from(#lit)) })
             .unwrap_or(quote! { None });
         quote! {
-            ::trait_schema::GenericParamAnnotations {
+            rs_schema::GenericParamAnnotations {
                 cffi_type: #cffi_type,
             }
         }
@@ -54,7 +52,7 @@ impl Into<proc_macro2::TokenStream> for GenericParamSchema {
         };
 
         quote! {
-            ::trait_schema::GenericParamSchema {
+            rs_schema::GenericParamSchema {
                 name: ::std::string::String::from(#name_lit),
                 annotations: #annotations_tokens,
             }
@@ -103,7 +101,7 @@ impl Into<proc_macro2::TokenStream> for TraitSchema {
                 let supertraits = ::std::vec![
                     #supertraits_tokens
                 ];
-                    ::trait_schema::TraitSchema {
+                    rs_schema::TraitSchema {
                         name: ::std::string::String::from(#name_lit),
                         functions: functions,
                         generics: generics,
@@ -165,7 +163,7 @@ impl Into<proc_macro2::TokenStream> for FunctionSchema {
         };
 
         quote! {
-            ::trait_schema::FunctionSchema {
+            rs_schema::FunctionSchema {
                 name: ::std::string::String::from(#name_lit),
                 args: ::std::vec![
                     #args_tokens
@@ -219,7 +217,7 @@ impl Into<proc_macro2::TokenStream> for FunctionAnnotations {
     fn into(self) -> proc_macro2::TokenStream {
         let cffi_impl_no_op = self.cffi_impl_no_op;
         quote! {
-            ::trait_schema::FunctionAnnotations {
+            rs_schema::FunctionAnnotations {
                 cffi_impl_no_op: #cffi_impl_no_op,
             }
         }
@@ -262,7 +260,7 @@ impl Into<proc_macro2::TokenStream> for TypeSchema {
             .collect::<Punctuated<_, Comma>>();
 
         quote! {
-            ::trait_schema::TypeSchema {
+            rs_schema::TypeSchema {
                 ty: ::std::string::String::from(#ty_lit),
                 generic_ty_args: ::std::vec![
                     #generic_ty_args_tokens
@@ -316,7 +314,7 @@ impl Into<proc_macro2::TokenStream> for FunctionArgSchema {
         };
 
         quote! {
-            ::trait_schema::FunctionArgSchema {
+            rs_schema::FunctionArgSchema {
             name: ::std::string::String::from(#name_lit),
             #ty_tokens
             annotations: #annotations_tokens,
@@ -349,7 +347,7 @@ impl Into<proc_macro2::TokenStream> for FnArgAnnotations {
             None => quote! { None },
         };
         quote! {
-            ::trait_schema::FnArgAnnotations {
+            rs_schema::FnArgAnnotations {
                 collection_as_item: #collection_as_item,
                 assert_len: #assert_len,
                 cffi_type: #cffi_type,
