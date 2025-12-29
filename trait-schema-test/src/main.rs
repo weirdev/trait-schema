@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use trait_schema::trait_schema;
+use trait_schema::*;
 
 #[trait_schema]
 trait MyTrait {

@@ -5,7 +5,7 @@ use syn::{
     Type,
 };
 
-use rs_schema as trait_schema;
+use rs_schema;
 
 #[proc_macro_attribute]
 /// Attribute macro that captures trait metadata and emits a schema function.
@@ -27,7 +27,7 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
     let trait_supertraits = extract_supertraits(&input.supertraits);
 
     let trait_name_string = trait_ident.to_string();
-    let trait_schema = trait_schema::TraitSchema {
+    let trait_schema = rs_schema::TraitSchema {
         name: trait_name_string,
         functions: trait_functions,
         generics: trait_generics,
@@ -40,7 +40,7 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
         #input
 
         #[allow(non_snake_case)]
-        pub fn #schema_fn_ident() -> trait_schema::TraitSchema {
+        pub fn #schema_fn_ident() -> rs_schema::TraitSchema {
             #trait_tokens
         }
     };
@@ -54,8 +54,8 @@ pub fn trait_schema(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Parse argument-level annotations (#[arg(...)]) and strip the attribute from the input.
-fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations {
-    let mut info = trait_schema::FnArgAnnotations::new();
+fn process_fn_arg_annotations(arg: &mut FnArg) -> rs_schema::FnArgAnnotations {
+    let mut info = rs_schema::FnArgAnnotations::new();
     if let syn::FnArg::Typed(pat_type) = arg {
         for attr in &pat_type.attrs {
             if attr.path().is_ident("arg") {
@@ -88,8 +88,8 @@ fn process_fn_arg_annotations(arg: &mut FnArg) -> trait_schema::FnArgAnnotations
 }
 
 /// Parse function-level annotations on trait methods (#[func(...)]).
-fn process_fn_annotations(func: &mut syn::TraitItemFn) -> trait_schema::FunctionAnnotations {
-    let mut info = trait_schema::FunctionAnnotations::new();
+fn process_fn_annotations(func: &mut syn::TraitItemFn) -> rs_schema::FunctionAnnotations {
+    let mut info = rs_schema::FunctionAnnotations::new();
     for attr in &func.attrs {
         if attr.path().is_ident("func") {
             // Parse nested meta inside #[func(...)]
@@ -154,20 +154,20 @@ fn parse_generic_annotations_attr(
 fn build_trait_generics(
     generics: &syn::Generics,
     generic_annotations: &std::collections::HashMap<String, String>,
-) -> Vec<trait_schema::GenericParamSchema> {
-    let mut trait_generics: Vec<trait_schema::GenericParamSchema> = Vec::new();
+) -> Vec<rs_schema::GenericParamSchema> {
+    let mut trait_generics: Vec<rs_schema::GenericParamSchema> = Vec::new();
 
     for generic_param in &generics.params {
         if let GenericParam::Type(type_param) = generic_param {
             let param_name = type_param.ident.to_string();
             let cffi_type = generic_annotations.get(&param_name).cloned();
             let annotations = if cffi_type.is_some() {
-                Some(trait_schema::GenericParamAnnotations { cffi_type })
+                Some(rs_schema::GenericParamAnnotations { cffi_type })
             } else {
                 None
             };
 
-            trait_generics.push(trait_schema::GenericParamSchema {
+            trait_generics.push(rs_schema::GenericParamSchema {
                 name: param_name,
                 annotations,
             });
@@ -178,15 +178,15 @@ fn build_trait_generics(
 }
 
 /// Extract function schemas from the trait items, parsing argument annotations.
-fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::FunctionSchema> {
-    let mut trait_functions: Vec<trait_schema::FunctionSchema> = Vec::new();
+fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<rs_schema::FunctionSchema> {
+    let mut trait_functions: Vec<rs_schema::FunctionSchema> = Vec::new();
 
     for it in items.iter_mut() {
         if let TraitItem::Fn(m) = it {
             let fn_annotations = process_fn_annotations(m);
             let sig = &mut m.sig;
 
-            let args: Vec<trait_schema::FunctionArgSchema> = sig
+            let args: Vec<rs_schema::FunctionArgSchema> = sig
                 .inputs
                 .iter_mut()
                 .filter_map(|arg| {
@@ -202,13 +202,13 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
 
                         let annotations = process_fn_arg_annotations(arg);
 
-                        Some(trait_schema::FunctionArgSchema {
+                        Some(rs_schema::FunctionArgSchema {
                             name: arg_name,
                             ty: Some(arg_ty),
                             annotations: Some(annotations),
                         })
                     } else if let FnArg::Receiver(Receiver { .. }) = arg {
-                        Some(trait_schema::FunctionArgSchema {
+                        Some(rs_schema::FunctionArgSchema {
                             name: "self".to_string(),
                             ty: None,
                             annotations: None,
@@ -220,14 +220,14 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
                 .collect();
 
             let return_type = match &sig.output {
-                ReturnType::Default => trait_schema::TypeSchema {
+                ReturnType::Default => rs_schema::TypeSchema {
                     ty: "()".to_string(),
                     generic_ty_args: vec![],
                 },
                 ReturnType::Type(_, ty) => type_schema_from_type(ty),
             };
 
-            trait_functions.push(trait_schema::FunctionSchema {
+            trait_functions.push(rs_schema::FunctionSchema {
                 name: sig.ident.to_string(),
                 args,
                 return_type,
@@ -244,7 +244,7 @@ fn extract_trait_functions(items: &mut Vec<TraitItem>) -> Vec<trait_schema::Func
 /// Extract supertraits from the trait bounds
 fn extract_supertraits(
     supertraits: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>,
-) -> Vec<trait_schema::TypeSchema> {
+) -> Vec<rs_schema::TypeSchema> {
     supertraits
         .iter()
         .filter_map(|bound| {
@@ -257,17 +257,17 @@ fn extract_supertraits(
         .collect()
 }
 
-fn type_schema_from_type(ty: &Type) -> trait_schema::TypeSchema {
+fn type_schema_from_type(ty: &Type) -> rs_schema::TypeSchema {
     match ty {
         Type::Path(type_path) => type_schema_from_path(&type_path.path),
-        _ => trait_schema::TypeSchema {
+        _ => rs_schema::TypeSchema {
             ty: format!("{}", quote! { #ty }),
             generic_ty_args: vec![],
         },
     }
 }
 
-fn type_schema_from_path(path: &syn::Path) -> trait_schema::TypeSchema {
+fn type_schema_from_path(path: &syn::Path) -> rs_schema::TypeSchema {
     let mut ty = String::new();
     if path.leading_colon.is_some() {
         ty.push_str("::");
@@ -293,7 +293,7 @@ fn type_schema_from_path(path: &syn::Path) -> trait_schema::TypeSchema {
                 .iter()
                 .map(|arg| match arg {
                     syn::GenericArgument::Type(ty) => type_schema_from_type(ty),
-                    _ => trait_schema::TypeSchema {
+                    _ => rs_schema::TypeSchema {
                         ty: format!("{}", quote! { #arg }),
                         generic_ty_args: vec![],
                     },
@@ -302,7 +302,7 @@ fn type_schema_from_path(path: &syn::Path) -> trait_schema::TypeSchema {
         })
         .unwrap_or_default();
 
-    trait_schema::TypeSchema {
+    rs_schema::TypeSchema {
         ty,
         generic_ty_args,
     }
@@ -393,14 +393,14 @@ mod tests {
 
     #[test]
     fn test_fn_arg_annotations_new() {
-        let annotations = trait_schema::FnArgAnnotations::new();
+        let annotations = rs_schema::FnArgAnnotations::new();
         assert!(!annotations.collection_as_item);
         assert!(annotations.assert_len.is_none());
     }
 
     #[test]
     fn test_fn_arg_annotations_creation_manual() {
-        let annotations = trait_schema::FnArgAnnotations {
+        let annotations = rs_schema::FnArgAnnotations {
             collection_as_item: true,
             assert_len: Some(25),
             cffi_type: Some("opt_ptr<f32>".to_string()),

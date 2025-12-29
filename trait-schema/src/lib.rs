@@ -1,9 +1,9 @@
+pub use rs_schema;
 pub use rs_schema_derive_impl::trait_schema;
-pub use rs_schema::*;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use rs_schema::*;
     use proc_macro2::TokenStream;
 
     #[test]
