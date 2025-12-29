@@ -1,7 +1,13 @@
 [package]
 name = "rs-schema-derive"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Procedural macros to derive `rs-schema` types from Rust code structures."
+repository = "https://github.com/weirdev/rs-schema"
+readme = "README.md"
+keywords = ["rust", "schema", "codegen", "types", "procedural-macros", "macros"]
+categories = ["rust-patterns"]
 
 [dependencies]
 rs-schema-derive-impl = { path = "../rs-schema-derive-impl" }

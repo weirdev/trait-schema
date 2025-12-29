@@ -1,7 +1,13 @@
 [package]
 name = "rs-schema"
-version.workspace = true
-edition.workspace = true
+version = "1.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Types modeling rust code structures."
+repository = "https://github.com/weirdev/rs-schema"
+readme = "README.md"
+keywords = ["rust", "schema", "codegen", "types"]
+categories = ["rust-patterns"]
 
 [dependencies]
 syn = { version = "2", features = ["full"] }

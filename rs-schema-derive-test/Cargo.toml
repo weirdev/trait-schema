@@ -1,7 +1,13 @@
 [package]
 name = "rs-schema-derive-test"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Tests for the `rs-schema-derive` procedural macros."
+repository = "https://github.com/weirdev/rs-schema"
+readme = "README.md"
+keywords = ["rust", "schema", "codegen", "types", "tests"]
+categories = ["rust-patterns"]
 
 [dependencies]
 rs-schema-derive = { path = "../rs-schema-derive" }

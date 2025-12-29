@@ -1,7 +1,13 @@
 [package]
 name = "rs-schema-derive-impl"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Implementation of procedural macros for `rs-schema-derive`."
+repository = "https://github.com/weirdev/rs-schema"
+readme = "README.md"
+keywords = ["rust", "schema", "codegen", "types", "procedural-macros", "macros"]
+categories = ["rust-patterns"]
 
 [lib]
 proc-macro = true

@@ -1,1 +1,1 @@
-# trait-schema
+# rs-schema
