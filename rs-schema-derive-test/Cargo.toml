@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "Tests for the `rs-schema-derive` procedural macros."
 repository = "https://github.com/weirdev/rs-schema"
 readme = "README.md"
-keywords = ["rust", "schema", "codegen", "types", "tests"]
+keywords = ["rust", "schema", "codegen", "tests"]
 categories = ["rust-patterns"]
 
 [dependencies]

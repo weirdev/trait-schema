@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "Procedural macros to derive `rs-schema` types from Rust code structures."
 repository = "https://github.com/weirdev/rs-schema"
 readme = "README.md"
-keywords = ["rust", "schema", "codegen", "types", "procedural-macros", "macros"]
+keywords = ["rust", "schema", "codegen", "procedural-macros", "macros"]
 categories = ["rust-patterns"]
 
 [dependencies]
